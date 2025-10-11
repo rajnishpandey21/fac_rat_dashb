@@ -787,7 +787,7 @@
         // Session guard: ensure user arrived via Index.html login
         const SESSION_ROLE = sessionStorage.getItem('authRole');
         const SESSION_CENTER_LABEL = sessionStorage.getItem('authCenterLabel');
-        if (!SESSION_ROLE) { window.location.href = 'Index.html'; return; }
+        if (!SESSION_ROLE) { window.location.href = 'index.html'; return; }
 
         const API_URL = "https://raw.githubusercontent.com/rajnishpandey21/fac_rat_data/main/manifest.json"; 
         const MIN_RESPONSES_FOR_RANKING = 30;
@@ -967,7 +967,7 @@
             resetFiltersBtn.addEventListener('click', resetFilters);
             exportReportBtn.addEventListener('click', exportComparisonReport);
             refreshDashboardBtn.addEventListener('click', () => location.reload()); // New event listener
-            if (logoutBtn) logoutBtn.addEventListener('click', () => { sessionStorage.clear(); window.location.href = 'Index.html'; });
+            if (logoutBtn) logoutBtn.addEventListener('click', () => { sessionStorage.clear(); window.location.href = 'index.html'; });
         };
 
         const fetchData = async () => {
