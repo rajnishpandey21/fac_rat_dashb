@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analyze Comments</title>
+
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="https://unpkg.com/@lottiefiles/lottie-player@latest/dist/lottie-player.js"></script>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            height: 100%;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background-color: #310e68;
+            background-image: linear-gradient(316deg, #310e68 0%, #5f0f40 74%);
+            padding: 2px 8px 8px 8px;
+            overflow-y: auto; 
+            overflow-x: hidden;
+        }
+
+        .dashboard-container {
+            max-width: 1600px;
+            width: 100%;
+            height: auto;
+            margin: 0 auto;
+            padding: 5px 8px 15px 8px;
+            animation: slideIn 0.4s ease-out;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            box-sizing: border-box;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Header Section */
+        .header-section {
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            gap: 8px;
+            min-height: 70px;
+            margin-bottom: 0px;
+        }
+
+        .date-filter-container {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 16px 24px;
+            border-radius: 16px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            border: 1px solid #e6e6e6;
+            flex-grow: 1;
+            flex-wrap: nowrap;
+            width: 100%;
+        }
+
+        .date-input-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex: 1 1 auto;
+            min-width: 140px;
+        }
+
+        .date-input-group label {
+            font-weight: 600;
+            color: #333;
+            font-size: 13px;
+        }
+
+        .date-input-group input,
+        .date-input-group select {
+            padding: 10px 14px;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            font-family: 'Inter', sans-serif;
+            font-size: 13px;
+            background: white;
+            transition: all 0.3s ease;
+            height: 36px;
+            width: 100%;
+            text-overflow: ellipsis;
+        }
+
+        .date-input-group input:focus,
+        .date-input-group select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .btn-3d {
+            padding: 12px 20px;
+            font-weight: 600;
+            font-size: 12px;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-family: 'Inter', sans-serif;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            position: relative;
+            transform-style: preserve-3d;
+            height: 44px;
+            text-decoration: none;
+            color: white;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .btn-export {
+            background: linear-gradient(145deg, #4a3aff, #6254ff);
+            color: white;
+            box-shadow: 0 4px 0 #3027b3, 0 6px 12px rgba(74, 58, 255, 0.3);
+        }
+        .btn-export:hover { transform: translateY(-1px); box-shadow: 0 5px 0 #3027b3, 0 8px 16px rgba(74, 58, 255, 0.4); }
+        .btn-export:active { transform: translateY(2px); box-shadow: 0 2px 0 #3027b3, 0 4px 8px rgba(74, 58, 255, 0.2); }
+
+        .btn-refresh {
+            background: linear-gradient(145deg, #ffffff, #f0f0f0);
+            color: #333;
+            border: 1px solid #ddd;
+            box-shadow: 0 4px 0 #c0c0c0, 0 6px 12px rgba(0, 0, 0, 0.1);
+        }
+        .btn-refresh:hover { transform: translateY(-1px); background: linear-gradient(145deg, #f0f0f0, #e0e0e0); box-shadow: 0 5px 0 #c0c0c0, 0 8px 16px rgba(0, 0, 0, 0.15); }
+        .btn-refresh:active { transform: translateY(2px); box-shadow: 0 2px 0 #c0c0c0, 0 4px 8px rgba(0, 0, 0, 0.1); }
+        
+        .stats-container {
+            display: grid; 
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 16px;
+            height: auto;
+            padding: 0 4px;
+        }
+        
+        .stat-card {
+            background: linear-gradient(145deg, #ffffff, #f6f6f6);
+            padding: 16px 12px;
+            border-radius: 16px;
+            text-align: center;
+            border: 2px solid #2f2f2f;
+            box-shadow: 0 4px 0 #2f2f2f, 0 6px 16px rgba(0, 0, 0, 0.12);
+            transition: all 0.2s ease;
+            position: relative;
+            height: 120px; /* Increased height for bigger fonts */
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .stat-card:hover { transform: translateY(-1px); box-shadow: 0 5px 0 #2f2f2f, 0 8px 16px rgba(0, 0, 0, 0.2); }
+        .stat-card:active { transform: translateY(1px); box-shadow: 0 2px 0 #2f2f2f, 0 4px 8px rgba(0, 0, 0, 0.15); }
+
+        .stat-card h3 {
+            font-size: 16px; /* IMPROVEMENT: Increased font size */
+            color: #666;
+            margin-bottom: 8px; /* IMPROVEMENT: Increased margin */
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+            line-height: 1.2;
+        }
+        
+        .stat-card .value {
+            font-size: 38px; /* IMPROVEMENT: Increased font size */
+            font-weight: 800;
+            color: #333;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            line-height: 1.1;
+        }
+
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            height: auto;
+            overflow: visible;
+            padding: 8px 4px;
+            gap: 24px; 
+        }
+
+        .chart-container {
+            background: rgba(255, 255, 255, 0.98);
+            padding: 25px 20px 20px 20px; /* IMPROVEMENT: Increased top padding */
+            border-radius: 16px;
+            border: 2px solid #2f2f2f;
+            box-shadow: 0 4px 0 #2f2f2f, 0 6px 20px rgba(0, 0, 0, 0.12);
+            height: 420px;
+            min-width: 20px;
+            transition: all 0.2s ease;
+            position: relative;
+        }
+
+        .chart-container:hover { transform: translateY(-1px); box-shadow: 0 4px 0 #2f2f2f, 0 6px 14px rgba(0, 0, 0, 0.18); }
+        .chart-container h2 {
+            font-size: 14px;
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 12px;
+            text-align: center;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+        }
+
+        /* Loading Spinner */
+        #loader {
+            text-align: center;
+            font-size: 1.2em;
+            padding: 50px;
+            color: white;
+            position:fixed; top:0; left:0; width:100%; height:100%; 
+            background:rgba(0,0,0,0.7); display:flex; flex-direction:column; 
+            align-items:center; justify-content:center; z-index:1000;
+        }
+        #loader .spinner {
+            border: 8px solid rgba(255,255,255,0.3);
+            border-top: 8px solid #fff;
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        /* Main Header for Title and Buttons */
+        .main-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 16px;
+            margin-bottom: 8px;
+        }
+
+        .dashboard-title {
+            color: #ffffff;
+            font-weight: 700;
+            font-size: 24px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.25);
+        }
+
+        /* --- ADDED: Styles for unique elements on this page --- */
+        .list-container {
+            background: rgba(255, 255, 255, 0.98);
+            padding: 20px;
+            border-radius: 16px;
+            border: 2px solid #2f2f2f;
+            box-shadow: 0 4px 0 #2f2f2f, 0 6px 20px rgba(0, 0, 0, 0.12);
+            margin-top: 16px;
+        }
+        .list-container h2 {
+            font-size: 14px;
+            font-weight: 700;
+            color: #333;
+            margin: 0;
+            text-align: left;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+        }
+        .comment-item { 
+            border-bottom: 1px solid #ddd; 
+            padding: 12px 2px;
+        }
+        .comment-item:last-child {
+            border-bottom: none;
+        }
+        .comment-meta { 
+            color: #666; 
+            font-size: 0.85rem; 
+            margin-bottom: 6px; 
+            font-weight: 500;
+        }
+        .comment-text {
+            color: #333;
+            line-height: 1.5;
+        }
+        #loadMoreBtn {
+            display: block;
+            width: 100%;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div id="loader">
+        <div class="spinner"></div>
+        <p style="color: #fff; margin-top: 20px;">Loading Comments...</p>
+    </div>
+
+    <div class="dashboard-container" id="mainContainer" style="display:none;">
+        <div class="main-header">
+            <a href="index.html" class="btn-3d btn-export">← Back to Dashboard</a>
+            <h1 class="dashboard-title">Analyze Comments</h1>
+            <button id="resetFiltersBtn" class="btn-3d btn-refresh">Reset Filters</button>
+        </div>
+
+        <div class="header-section">
+            <div class="date-filter-container">
+                <div class="date-input-group"><label for="startDate">Start Date</label><input type="date" id="startDate"></div>
+                <div class="date-input-group"><label for="endDate">End Date</label><input type="date" id="endDate"></div>
+                <div class="date-input-group"><label for="branchFilter">Center</label><select id="branchFilter"><option value="all">All Centers</option></select></div>
+                <div class="date-input-group"><label for="expertiseFilter">Expertise</label><select id="expertiseFilter"><option value="all">All Expertise</option></select></div>
+                <div class="date-input-group"><label for="teacherFilter">Teacher</label><select id="teacherFilter"><option value="all">All Teachers</option></select></div>
+                <div class="date-input-group"><label for="batchFilter">Batch</label><select id="batchFilter"><option value="all">All Batches</option></select></div>
+            </div>
+        </div>
+
+        <div class="stats-container">
+            <div class="stat-card"><h3>Total Comments</h3><div id="kpiTotalComments" class="value">-</div></div>
+            <div class="stat-card"><h3>Total Suggestions</h3><div id="kpiTotalSuggestions" class="value">-</div></div>
+            <div class="stat-card"><h3>Avg. Comment Length</h3><div id="kpiAvgLen" class="value">-</div></div>
+            <div class="stat-card"><h3>Unique Commenters</h3><div id="kpiUniqueCommenters" class="value">-</div></div>
+        </div>
+
+        <div class="charts-grid">
+            <div class="chart-container"><h2>Comments by Center</h2><canvas id="centerChart"></canvas></div>
+            <div class="chart-container"><h2>Comments by Teacher</h2><canvas id="teacherChart"></canvas></div>
+            <div class="chart-container"><h2>Comments by Batch</h2><canvas id="batchChart"></canvas></div>
+        </div>
+
+        <div class="list-container">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2>All Comments & Suggestions</h2>
+                <button id="exportCsvBtn" class="btn-3d btn-export" style="height: 38px; padding: 10px 16px; font-size: 11px;">Export to CSV</button>
+            </div>
+            <div id="commentsList"></div>
+            <button id="loadMoreBtn" class="btn-3d btn-refresh">Load More</button>
+        </div>
+    </div>
+
+<script>
+        const API_URL = "https://raw.githubusercontent.com/rajnishpandey21/fac_rat_data/main/manifest.json";
+        const MIN_RESPONSES_FOR_RANKING = 30;
+
+        let allData = [];
+        let allExpertiseOptions = [], allBatchOptions = [];
+        let centerChart, teacherChart, batchChart;
+        let page = 0; const PAGE_SIZE = 20; let currentItems = [];
+        let scheduleRender;
+
+        function showLoader() {
+            document.getElementById('loader').style.display = 'flex';
+            document.getElementById('mainContainer').style.display = 'none';
+        }
+
+        function hideLoader() {
+            document.getElementById('loader').style.display = 'none';
+            document.getElementById('mainContainer').style.display = 'flex';
+        }
+
+        function resetFilters() {
+            const today = new Date();
+            const defaultStartDate = new Date('2025-02-01');
+            document.getElementById('endDate').value = today.toISOString().split('T')[0];
+            document.getElementById('startDate').value = defaultStartDate.toISOString().split('T')[0];
+            document.getElementById('branchFilter').value = 'all';
+            document.getElementById('expertiseFilter').value = 'all';
+            document.getElementById('teacherFilter').value = 'all';
+            document.getElementById('batchFilter').value = 'all';
+            renderDashboard();
+        }
+
+        const debounce = (fn, wait) => { let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn.apply(null, args), wait); }; };
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            showLoader();
+            const startDateEl = document.getElementById('startDate');
+            const endDateEl = document.getElementById('endDate');
+            const branchFilterEl = document.getElementById('branchFilter');
+            const expertiseFilterEl = document.getElementById('expertiseFilter');
+            const teacherFilterEl = document.getElementById('teacherFilter');
+            const batchFilterEl = document.getElementById('batchFilter');
+
+            const today = new Date();
+            const defaultStartDate = new Date('2025-02-01');
+            endDateEl.value = today.toISOString().split('T')[0];
+            startDateEl.value = defaultStartDate.toISOString().split('T')[0];
+            scheduleRender = debounce(renderDashboard, 200);
+
+            try {
+                console.log("Fetching data manifest from GitHub...");
+                const manifestResponse = await fetch(API_URL);
+                if (!manifestResponse.ok) throw new Error(`HTTP Error: ${manifestResponse.status}`);
+                const manifest = await manifestResponse.json();
+
+                const baseUrl = API_URL.substring(0, API_URL.lastIndexOf('/') + 1);
+
+                // Fetch all data part files concurrently
+                const reviewPromises = manifest.review_files.map(file =>
+                    fetch(baseUrl + file).then(res => res.json())
+                );
+                
+                const reviewChunks = await Promise.all(reviewPromises);
+                
+                // Combine the chunks into a single array of reviews
+                allData = [].concat(...reviewChunks);
+
+            } catch(e) {
+                console.error('Failed to fetch data:', e);
+                document.getElementById('loader').innerHTML = `<p style="color:white;">Failed to load data: ${e.message}</p>`;
+                return; 
+            }
+            
+            hideLoader();
+
+            const branches = [...new Set(allData.map(a=>a.teacherBranch))].sort();
+            const expertise = [...new Set(allData.map(a=>a.expertise))].sort();
+            const batches = [...new Set(allData.map(a=>`${a.batchId} - ${a.course}`))].sort();
+            const teachersMap = new Map();
+            allData.filter(r=>r.teacherStatus==='Working').forEach(r => { if(!teachersMap.has(r.teacherId)) teachersMap.set(r.teacherId, r.teacherName); });
+            const teachers = [...teachersMap.entries()].sort((a,b)=>a[1].localeCompare(b[1]));
+            allExpertiseOptions = expertise;
+            allBatchOptions = batches;
+            branches.forEach(b=>branchFilterEl.add(new Option(b,b)));
+            expertise.forEach(x=>expertiseFilterEl.add(new Option(x,x)));
+            teachers.forEach(([id,name])=>teacherFilterEl.add(new Option(name,id)));
+            batches.forEach(b=>batchFilterEl.add(new Option(b,b)));
+
+            [startDateEl,endDateEl,branchFilterEl,expertiseFilterEl,teacherFilterEl,batchFilterEl].forEach(el=>el.addEventListener('change',scheduleRender));
+            document.getElementById('loadMoreBtn').addEventListener('click', loadMore);
+            document.getElementById('resetFiltersBtn').addEventListener('click', resetFilters);
+            document.getElementById('exportCsvBtn').addEventListener('click', exportToCsv);
+            
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.has('teacherId')) teacherFilterEl.value = urlParams.get('teacherId');
+            if (urlParams.has('startDate')) startDateEl.value = urlParams.get('startDate');
+            if (urlParams.has('endDate')) endDateEl.value = urlParams.get('endDate');
+            if (urlParams.has('branch')) branchFilterEl.value = urlParams.get('branch');
+
+            renderDashboard();
+        });
+
+        function getFiltered() {
+            const start = new Date(document.getElementById('startDate').value).getTime();
+            const end = new Date(document.getElementById('endDate').value).getTime() + 86399999;
+            const branch = document.getElementById('branchFilter').value;
+            const expertise = document.getElementById('expertiseFilter').value;
+            const teacher = document.getElementById('teacherFilter').value;
+            const batch = document.getElementById('batchFilter').value;
+            return allData.filter(d => {
+                const batchId = `${d.batchId} - ${d.course}`;
+                return d.timestamp>=start && d.timestamp<=end &&
+                       (branch==='all'||d.teacherBranch===branch) &&
+                       (expertise==='all'||d.expertise===expertise) &&
+                       (teacher==='all'||d.teacherId===teacher) &&
+                       (batch==='all'||batchId===batch);
+            });
+        }
+
+        function renderDashboard(){
+            const filters = {
+                startDate: new Date(document.getElementById('startDate').value).getTime(),
+                endDate: new Date(document.getElementById('endDate').value).getTime() + 86399999,
+                branch: document.getElementById('branchFilter').value
+            };
+
+            const base = allData.filter(d => d.timestamp>=filters.startDate && d.timestamp<=filters.endDate && (filters.branch==='all'||d.teacherBranch===filters.branch) && d.teacherStatus==='Working');
+            const expertiseTeacherRegNos = new Map();
+            const batchTeacherRegNos = new Map();
+            base.forEach(d => {
+                const exp = d.expertise, batchKey = `${d.batchId} - ${d.course}`, tid = d.teacherId, reg = d.studentRegNo;
+                if (!expertiseTeacherRegNos.has(exp)) expertiseTeacherRegNos.set(exp, new Map());
+                const expMap = expertiseTeacherRegNos.get(exp);
+                if (!expMap.has(tid)) expMap.set(tid, new Set());
+                expMap.get(tid).add(reg);
+                if (!batchTeacherRegNos.has(batchKey)) batchTeacherRegNos.set(batchKey, new Map());
+                const batchMap = batchTeacherRegNos.get(batchKey);
+                if (!batchMap.has(tid)) batchMap.set(tid, new Set());
+                batchMap.get(tid).add(reg);
+            });
+            const eligibleExpertise = [];
+            expertiseTeacherRegNos.forEach((teacherMap, exp) => { for (const set of teacherMap.values()) { if (set.size >= MIN_RESPONSES_FOR_RANKING) { eligibleExpertise.push(exp); break; } } });
+            const eligibleBatches = [];
+            batchTeacherRegNos.forEach((teacherMap, batch) => { for (const set of teacherMap.values()) { if (set.size >= MIN_RESPONSES_FOR_RANKING) { eligibleBatches.push(batch); break; } } });
+            const resetSelect = (el, label, values)=>{ const prev=el.value; el.innerHTML=''; el.add(new Option(label,'all')); values.forEach(v=>el.add(new Option(v,v))); el.value = values.includes(prev)?prev:'all'; };
+            resetSelect(document.getElementById('expertiseFilter'),'All Expertise', eligibleExpertise.sort());
+            resetSelect(document.getElementById('batchFilter'),'All Batches', eligibleBatches.sort());
+
+            const data = getFiltered();
+            updateKpis(data);
+            renderCharts(data);
+            page = 0; currentItems = buildCommentItems(data);
+            document.getElementById('commentsList').innerHTML = '';
+            loadMore();
+        }
+
+        function textLen(s){ return String(s||'').trim().length; }
+
+        function updateKpis(data){
+            const comments = data.map(d=> String(d.comments||'').trim()).filter(Boolean);
+            const suggestions = data.map(d=> String(d.suggestions||'').trim()).filter(Boolean);
+            document.getElementById('kpiTotalComments').textContent = comments.length.toLocaleString();
+            document.getElementById('kpiTotalSuggestions').textContent = suggestions.length.toLocaleString();
+            const lengths = comments.concat(suggestions).map(textLen);
+            const avgLen = lengths.length ? (lengths.reduce((a,b)=>a+b,0)/lengths.length) : 0;
+            document.getElementById('kpiAvgLen').textContent = avgLen.toFixed(0);
+            const uniqueCommenters = new Set(data.filter(d=> textLen(d.comments)||textLen(d.suggestions)).map(d=> String(d.studentRegNo)));
+            document.getElementById('kpiUniqueCommenters').textContent = uniqueCommenters.size.toLocaleString();
+        }
+
+        function aggregateCount(data, key){
+            const m = new Map();
+            data.forEach(d=>{
+                const hasNote = textLen(d.comments)||textLen(d.suggestions);
+                if(!hasNote) return;
+                const k = key(d);
+                m.set(k, (m.get(k)||0)+1);
+            });
+            const entries = [...m.entries()].sort((a,b)=>b[1]-a[1]).slice(0,10);
+            return { labels: entries.map(e=>e[0]), counts: entries.map(e=>e[1]) };
+        }
+
+        function renderCharts(data){
+            const byCenter = aggregateCount(data, d=>d.teacherBranch);
+            const byTeacher = aggregateCount(data, d=>d.teacherName);
+            const byBatch = aggregateCount(data, d=>`${d.batchId} - ${d.course}`);
+
+            if(centerChart) centerChart.destroy();
+            if(teacherChart) teacherChart.destroy();
+            if(batchChart) batchChart.destroy();
+
+            const baseOptions = {
+                responsive: true,
+                maintainAspectRatio: false,
+                layout: {
+                    padding: {
+                        top: 20,
+                        right: 15,
+                        bottom: 15,
+                        left: 10
+                    }
+                },
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: { color: '#333' }
+                    }
+                }
+            };
+
+            const barChartOptions = {
+                ...baseOptions,
+                indexAxis: 'y',
+                scales: {
+                    y: {
+                        ticks: { color: '#666' },
+                        grid: { color: '#ddd' },
+                        title: {
+                            display: true,
+                            color: '#333',
+                            font: { size: 12, weight: '600' }
+                        }
+                    },
+                    x: {
+                        ticks: { color: '#666' },
+                        grid: { display: false },
+                        title: {
+                            display: true,
+                            text: 'Number of Comments',
+                            color: '#333',
+                            font: { size: 12, weight: '600' }
+                        }
+                    }
+                },
+                plugins: {
+                    legend: { display: false }
+                }
+            };
+
+            // Center Chart (Pie)
+            centerChart = new Chart(document.getElementById('centerChart').getContext('2d'), {
+                type: 'pie',
+                data: { labels: byCenter.labels, datasets: [{ data: byCenter.counts }] },
+                options: baseOptions
+            });
+
+            // Teacher Chart (Bar)
+            const teacherChartConfig = {
+                type: 'bar',
+                data: {
+                    labels: byTeacher.labels,
+                    datasets: [{
+                        data: byTeacher.counts,
+                        backgroundColor: 'rgba(102, 126, 234, 0.8)',
+                        barThickness: byTeacher.labels.length === 1 ? 80 : undefined
+                    }]
+                },
+                options: {
+                    ...barChartOptions,
+                    scales: {
+                        ...barChartOptions.scales,
+                        y: { ...barChartOptions.scales.y, title: { ...barChartOptions.scales.y.title, text: 'Teacher' } }
+                    }
+                }
+            };
+            teacherChart = new Chart(document.getElementById('teacherChart').getContext('2d'), teacherChartConfig);
+
+            // Batch Chart (Bar)
+            const batchChartConfig = {
+                type: 'bar',
+                data: {
+                    labels: byBatch.labels,
+                    datasets: [{
+                        data: byBatch.counts,
+                        backgroundColor: 'rgba(118, 75, 162, 0.8)',
+                        barThickness: byBatch.labels.length === 1 ? 80 : undefined
+                    }]
+                },
+                options: {
+                    ...barChartOptions,
+                    scales: {
+                        ...barChartOptions.scales,
+                        y: { ...barChartOptions.scales.y, title: { ...barChartOptions.scales.y.title, text: 'Batch' } }
+                    }
+                }
+            };
+            batchChart = new Chart(document.getElementById('batchChart').getContext('2d'), batchChartConfig);
+        }
+
+        function buildCommentItems(data){
+            const items = [];
+            data.forEach(d=>{
+                const date = new Date(d.timestamp).toISOString().split('T')[0];
+                if(textLen(d.comments)) items.push({ date, who: `${d.teacherName} • ${d.teacherBranch} • ${d.batchId} - ${d.course}`, type: 'Comment', text: d.comments, teacher: d.teacherName, center: d.teacherBranch, batch: `${d.batchId} - ${d.course}`, studentRegNo: d.studentRegNo });
+                if(textLen(d.suggestions)) items.push({ date, who: `${d.teacherName} • ${d.teacherBranch} • ${d.batchId} - ${d.course}`, type: 'Suggestion', text: d.suggestions, teacher: d.teacherName, center: d.teacherBranch, batch: `${d.batchId} - ${d.course}`, studentRegNo: d.studentRegNo });
+            });
+            items.sort((a,b)=> (a.date<b.date?1:(a.date>b.date?-1:0)) );
+            return items;
+        }
+
+        function loadMore(){
+            const container = document.getElementById('commentsList');
+            const start = page*PAGE_SIZE; const end = start + PAGE_SIZE;
+            const slice = currentItems.slice(start,end);
+            slice.forEach(it=>{
+                const div = document.createElement('div');
+                div.className = 'comment-item';
+                div.innerHTML = `<div class="comment-meta">${it.date} • ${it.type} • ${it.who}</div><div class="comment-text">${escapeHtml(it.text)}</div>`;
+                container.appendChild(div);
+            });
+            page++;
+            document.getElementById('loadMoreBtn').style.display = (end < currentItems.length) ? 'block' : 'none';
+        }
+
+        function exportToCsv() {
+            if (!currentItems || currentItems.length === 0) { alert('No comments to export.'); return; }
+            const headers = ['Date', 'Type', 'Teacher', 'Center', 'Batch', 'Student Reg No', 'Text'];
+            const escapeCsvCell = (cell) => { let value = String(cell || ''); if (/[",\n\r]/.test(value)) { value = `"${value.replace(/"/g, '""')}"`; } return value; };
+            const csvRows = [headers.join(',')];
+            for (const item of currentItems) { const values = [ item.date, item.type, item.teacher, item.center, item.batch, item.studentRegNo, item.text ].map(escapeCsvCell); csvRows.push(values.join(',')); }
+            const csvString = csvRows.join('\r\n');
+            const blob = new Blob(['\uFEFF' + csvString], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            if (link.download !== undefined) {
+                const url = URL.createObjectURL(blob);
+                link.setAttribute('href', url);
+                link.setAttribute('download', 'comments_export.csv');
+                link.style.visibility = 'hidden';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }
+        }
+
+        function escapeHtml(s){return String(s||'').replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));}
+    </script>
+</body>
+</html>

@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Access</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: #310e68;
+            background-image: linear-gradient(316deg, #310e68 0%, #5f0f40 74%);
+            padding: 24px;
+        }
+        .card {
+            width: 100%;
+            max-width: 760px;
+            background: #fff;
+            border-radius: 16px;
+            padding: 28px 28px 24px 28px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+            border: 1px solid #e6e6e6;
+        }
+        h1 { text-align: center; margin-bottom: 18px; color: #222; }
+        .tabs { display: flex; gap: 12px; justify-content: center; margin-bottom: 18px; }
+        .tab-btn {
+            border: 1px solid #e0e0e0; background: #f7f7f7; color: #222; padding: 10px 18px; border-radius: 10px; cursor: pointer; font-weight: 600;
+            box-shadow: 0 3px 8px rgba(0,0,0,0.06);
+        }
+        .tab-btn.active { background: #fff; border-color: #d0d0d0; }
+        form { display: none; }
+        form.active { display: block; }
+        .form-group { margin-bottom: 14px; }
+        label { display: block; font-weight: 600; margin-bottom: 6px; color: #333; font-size: 14px; }
+        input, select {
+            width: 100%; padding: 12px 14px; border: 1px solid #ddd; border-radius: 10px; font-size: 14px; background: #fff;
+        }
+        .btn {
+            width: 100%; padding: 12px; border: none; border-radius: 12px; color: #fff; font-weight: 700; cursor: pointer; font-size: 15px;
+            background: linear-gradient(145deg, #4a3aff, #6254ff);
+            box-shadow: 0 4px 0 #3027b3, 0 6px 12px rgba(74, 58, 255, 0.3);
+        }
+        .note { text-align: center; font-size: 12px; color: #666; margin-top: 10px; }
+        .error { color: #b00020; font-size: 13px; margin-top: 6px; }
+        .muted { color: #888; font-size: 13px; }
+    </style>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // If already authenticated, go straight to dashboard
+            const existingRole = sessionStorage.getItem('authRole');
+            if (existingRole) { window.location.href = 'Dashboard.html'; return; }
+
+            // Constants shared with dashboard
+            const API_URL = "https://raw.githubusercontent.com/rajnishpandey21/fac_rat_data/main/manifest.json";
+            const CACHE_KEY = 'dashboardApiData';
+            const CACHE_TIMESTAMP_KEY = 'dashboardApiTimestamp';
+            const CACHE_DURATION = 15 * 60 * 1000; // 15 minutes
+
+            const centerPasswords = {
+                // keys are canonical center ids (letters only, lowercase)
+                agra: 'AGR732',
+                bhopal: 'BPL533',
+                bhubaneswar: 'BBS580',
+                indore: 'IND951',
+                jaipur: 'JPR744',
+                kolkata: 'KOL583',
+                lucknow: 'LKN472',
+                newdelhi: 'DEL812',
+                patna: 'PAT369',
+                prayagraj: 'PRJ638',
+                ranchi: 'RNC207',
+                siliguri: 'SLG498',
+                varanasi: 'VNS861'
+            };
+
+            const adminCreds = { username: 'admin', password: 'adminGEW123' };
+
+            const adminTabBtn = document.getElementById('tab-admin');
+            const centerTabBtn = document.getElementById('tab-center');
+            const adminForm = document.getElementById('adminForm');
+            const centerForm = document.getElementById('centerForm');
+            const centerSelect = document.getElementById('centerSelect');
+            const centerError = document.getElementById('centerError');
+            const adminError = document.getElementById('adminError');
+
+            const toKey = (str) => String(str || '').toLowerCase().replace(/[^a-z]/g, '');
+            const labelToCanonical = (label) => {
+                const s = toKey(label);
+                const candidates = Object.keys(centerPasswords);
+                for (const c of candidates) { if (s.includes(c)) return c; }
+                return s; // fallback
+            };
+
+            function setActive(tab) {
+                if (tab === 'admin') {
+                    adminTabBtn.classList.add('active');
+                    centerTabBtn.classList.remove('active');
+                    adminForm.classList.add('active');
+                    centerForm.classList.remove('active');
+                } else {
+                    centerTabBtn.classList.add('active');
+                    adminTabBtn.classList.remove('active');
+                    centerForm.classList.add('active');
+                    adminForm.classList.remove('active');
+                }
+            }
+
+            adminTabBtn.addEventListener('click', () => setActive('admin'));
+            centerTabBtn.addEventListener('click', () => setActive('center'));
+            setActive('center');
+
+            function getCachedData() {
+                const ts = localStorage.getItem(CACHE_TIMESTAMP_KEY);
+                if (!ts) return null;
+                const fresh = (Date.now() - parseInt(ts, 10)) < CACHE_DURATION;
+                if (!fresh) return null;
+                const cached = localStorage.getItem(CACHE_KEY);
+                return cached ? JSON.parse(cached) : null;
+            }
+
+            async function loadCenters() {
+                centerSelect.innerHTML = '<option value="">Loading centers...</option>';
+                centerSelect.disabled = true;
+
+                let payload = getCachedData();
+                if (!payload) {
+                    try {
+                        const manifestResponse = await fetch(API_URL);
+                        if (!manifestResponse.ok) throw new Error(`HTTP ${manifestResponse.status}`);
+                        const manifest = await manifestResponse.json();
+                        const baseUrl = API_URL.substring(0, API_URL.lastIndexOf('/') + 1);
+                        const reviewPromises = manifest.review_files.map(file => fetch(baseUrl + file).then(res => res.json()));
+                        const reviewChunks = await Promise.all(reviewPromises);
+                        const combinedReviews = [].concat(...reviewChunks);
+                        payload = { reviews: combinedReviews, admissions: manifest.admissions || [] };
+                        // persist for dashboard to reuse
+                        try {
+                            localStorage.setItem(CACHE_KEY, JSON.stringify(payload));
+                            localStorage.setItem(CACHE_TIMESTAMP_KEY, String(Date.now()));
+                        } catch (_) {}
+                    } catch (err) {
+                        centerSelect.innerHTML = '<option value="">Failed to load centers. Refresh page.</option>';
+                        return;
+                    }
+                }
+
+                const getNormalizedBranch = (raw) => {
+                    const val = String(raw || '').trim();
+                    if (!val) return '';
+                    const lower = val.toLowerCase();
+                    if (lower === 'prayagraj lkt') return 'Prayagraj';
+                    return val;
+                };
+
+                const branches = [...new Set(payload.reviews.map(r => getNormalizedBranch(r.teacherBranch)))].sort();
+                centerSelect.innerHTML = '';
+                centerSelect.disabled = false;
+                branches.forEach(label => {
+                    const opt = document.createElement('option');
+                    opt.value = label; // keep label as value to match dashboard exactly
+                    opt.textContent = label;
+                    centerSelect.appendChild(opt);
+                });
+            }
+
+            loadCenters();
+
+            adminForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                adminError.textContent = '';
+                const u = document.getElementById('adminUsername').value.trim();
+                const p = document.getElementById('adminPassword').value.trim();
+                if (u === adminCreds.username && p === adminCreds.password) {
+                    sessionStorage.setItem('authRole', 'admin');
+                    sessionStorage.removeItem('authCenterLabel');
+                    window.location.href = 'Dashboard.html';
+                } else {
+                    adminError.textContent = 'Invalid admin credentials.';
+                }
+            });
+
+            centerForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                centerError.textContent = '';
+                const label = centerSelect.value;
+                const pass = document.getElementById('centerPassword').value.trim();
+                if (!label) { centerError.textContent = 'Please select a center.'; return; }
+                const key = labelToCanonical(label);
+                const expected = centerPasswords[key];
+                if (expected && pass === expected) {
+                    sessionStorage.setItem('authRole', 'center');
+                    sessionStorage.setItem('authCenterLabel', label);
+                    window.location.href = 'Dashboard.html';
+                } else {
+                    centerError.textContent = 'Incorrect password for selected center.';
+                }
+            });
+        });
+    </script>
+</head>
+<body>
+    <div class="card">
+        <h1>Dashboard Access</h1>
+        <div class="tabs">
+            <button id="tab-admin" class="tab-btn">Admin Login</button>
+            <button id="tab-center" class="tab-btn active">Center Login</button>
+        </div>
+
+        <form id="adminForm" autocomplete="off">
+            <div class="form-group">
+                <label for="adminUsername">Username</label>
+                <input type="text" id="adminUsername" placeholder="Enter username">
+            </div>
+            <div class="form-group">
+                <label for="adminPassword">Password</label>
+                <input type="password" id="adminPassword" placeholder="Enter password">
+            </div>
+            <button type="submit" class="btn">Login</button>
+            <div id="adminError" class="error"></div>
+            <div class="note muted">Enter Admin User ID and Password</div>
+        </form>
+
+        <form id="centerForm" class="active" autocomplete="off">
+            <div class="form-group">
+                <label for="centerSelect">Select Center</label>
+                <select id="centerSelect"></select>
+            </div>
+            <div class="form-group">
+                <label for="centerPassword">Password</label>
+                <input type="password" id="centerPassword" placeholder="Enter password">
+            </div>
+            <button type="submit" class="btn">Login</button>
+            <div id="centerError" class="error"></div>
+            <div class="note muted">Choose Your center and enter the same Password as in main Business Dashboard.</div>
+        </form>
+    </div>
+</body>
+</html>
+
+

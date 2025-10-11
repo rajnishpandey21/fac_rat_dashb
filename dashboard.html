@@ -1,0 +1,1666 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Faculty Performance Dashboard</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-matrix@2.0.1/dist/chartjs-chart-matrix.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="https://unpkg.com/@lottiefiles/lottie-player@latest/dist/lottie-player.js"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            height: 100%;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background-color: #310e68;
+            background-image: linear-gradient(316deg, #310e68 0%, #5f0f40 74%);
+            padding: 2px 8px 8px 8px;
+            overflow-y: auto; 
+            overflow-x: hidden;
+        }
+
+        .dashboard-container {
+            max-width: 1600px;
+            width: 100%;
+            height: auto;
+            margin: 0 auto;
+            padding: 5px 8px 15px 8px;
+            animation: slideIn 0.4s ease-out;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            box-sizing: border-box;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Header Section */
+        .header-section {
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            gap: 8px;
+            min-height: 70px;
+            margin-bottom: 0px;
+        }
+
+        .date-filter-container {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 16px 24px;
+            border-radius: 16px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            border: 1px solid #e6e6e6;
+            flex-grow: 1;
+        }
+
+        .date-input-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .date-input-group label {
+            font-weight: 600;
+            color: #333;
+            font-size: 13px;
+        }
+
+        .date-input-group input,
+        .date-input-group select {
+            padding: 10px 14px;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            font-family: 'Inter', sans-serif;
+            font-size: 13px;
+            background: white;
+            transition: all 0.3s ease;
+            height: 36px;
+        }
+
+        .date-input-group input:focus,
+        .date-input-group select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .btn-3d {
+            padding: 12px 20px;
+            font-weight: 600;
+            font-size: 12px;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-family: 'Inter', sans-serif;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            position: relative;
+            transform-style: preserve-3d;
+            height: 44px;
+            text-decoration: none;
+            color: white;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .btn-export {
+            background: linear-gradient(145deg, #4a3aff, #6254ff);
+            color: white;
+            box-shadow: 
+                0 4px 0 #3027b3,
+                0 6px 12px rgba(74, 58, 255, 0.3);
+        }
+
+        .btn-export:hover {
+            transform: translateY(-1px);
+            box-shadow: 
+                0 5px 0 #3027b3,
+                0 8px 16px rgba(74, 58, 255, 0.4);
+        }
+
+        .btn-export:active {
+            transform: translateY(2px);
+            box-shadow: 
+                0 2px 0 #3027b3,
+                0 4px 8px rgba(74, 58, 255, 0.2);
+        }
+        
+        .btn-export:disabled {
+            background: #9d96ff;
+            cursor: not-allowed;
+            box-shadow: 0 4px 0 #7b73cc;
+        }
+
+        .btn-refresh {
+            background: linear-gradient(145deg, #ffffff, #f0f0f0);
+            color: #333;
+            border: 1px solid #ddd;
+            box-shadow: 
+                0 4px 0 #c0c0c0,
+                0 6px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .btn-refresh:hover {
+            transform: translateY(-1px);
+            background: linear-gradient(145deg, #f0f0f0, #e0e0e0);
+            box-shadow: 
+                0 5px 0 #c0c0c0,
+                0 8px 16px rgba(0, 0, 0, 0.15);
+        }
+
+        .btn-refresh:active {
+            transform: translateY(2px);
+            box-shadow: 
+                0 2px 0 #c0c0c0,
+                0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        
+        .stats-container {
+            display: flex;
+            flex-wrap: wrap; 
+            gap: 16px;
+            height: auto;
+            padding: 0 4px;
+        }
+        
+        .kpi-group {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 16px;
+            padding: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            flex-grow: 1; 
+            min-width: 300px;
+        }
+
+        .kpi-group-title {
+            font-size: 13px;
+            font-weight: 700;
+            color: #fff;
+            text-align: center;
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            text-shadow: 0 1px 3px rgba(0,0,0,0.2);
+        }
+        
+        .kpi-group-cards {
+            display: grid;
+            gap: 12px;
+        }
+
+        .grid-4 { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+
+        .stat-card {
+            background: linear-gradient(145deg, #ffffff, #f6f6f6);
+            padding: 16px 12px;
+            border-radius: 16px;
+            text-align: center;
+            border: 2px solid #2f2f2f;
+            box-shadow:
+                0 4px 0 #2f2f2f,
+                0 6px 16px rgba(0, 0, 0, 0.12);
+            transition: all 0.2s ease;
+            cursor: pointer;
+            position: relative;
+            overflow: visible;
+            height: 100px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            box-sizing: border-box;
+            z-index: 0;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-1px);
+            box-shadow: 
+                0 5px 0 #2f2f2f,
+                0 8px 16px rgba(0, 0, 0, 0.2);
+            z-index: 100;
+        }
+
+        .stat-card:active {
+            transform: translateY(1px);
+            box-shadow: 
+                0 2px 0 #2f2f2f,
+                0 4px 8px rgba(0, 0, 0, 0.15);
+        }
+
+        .stat-card h3 {
+            font-size: 11px;
+            color: #666;
+            margin-bottom: 6px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+            line-height: 1.2;
+        }
+        
+        .stat-card .value {
+            font-size: 24px;
+            font-weight: 800;
+            color: #333;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            line-height: 1.1;
+            max-width: 100%;
+            white-space: normal;
+            word-break: break-word;
+        }
+        .stat-card .sub-value {
+             color: #888;
+             font-size: 11px;
+             margin-top: 4px;
+             line-height: 1.1;
+        }
+
+        /* --- CHANGE 1: Chart Grid Layout Updated --- */
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr); /* Two columns on wider screens */
+            height: auto;
+            overflow: visible;
+            padding: 8px 4px;
+            gap: 24px; 
+        }
+
+        /* This new rule makes an element span across all columns of the grid */
+        .charts-grid .span-two-columns {
+            grid-column: 1 / -1;
+        }
+
+        /* Make charts stack into a single column on smaller screens */
+        @media (max-width: 900px) {
+            .charts-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        /* --- END OF CHANGE 1 --- */
+
+        .chart-container {
+            background: rgba(255, 255, 255, 0.98);
+            padding: 20px;
+            border-radius: 16px;
+            border: 2px solid #2f2f2f;
+            box-shadow:
+                0 4px 0 #2f2f2f,
+                0 6px 20px rgba(0, 0, 0, 0.12);
+            height: 420px;
+            min-width: 20px;
+            transition: all 0.2s ease;
+            position: relative;
+            overflow: visible;
+        }
+
+        .chart-container:hover {
+            transform: translateY(-1px);
+            box-shadow: 
+                0 4px 0 #2f2f2f,
+                0 6px 14px rgba(0, 0, 0, 0.18);
+        }
+
+        .chart-container h4, .dashboard-container h2 {
+            font-size: 14px;
+            font-weight: 700;
+            color: #fff;
+            margin-bottom: 12px;
+            text-align: center;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+        }
+        .chart-container h4 {
+            color: #333;
+        }
+        
+        .info-note {
+            color: #f0f0f0; 
+            font-size: .9em;
+            text-align: center;
+            margin-top: -8px;
+            margin-bottom: 8px;
+        }
+
+        /* Loading Spinner */
+        #loader {
+            text-align: center;
+            font-size: 1.2em;
+            padding: 50px;
+            color: white;
+        }
+        #loader .spinner {
+            border: 8px solid rgba(255,255,255,0.3);
+            border-top: 8px solid #fff;
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* --- STYLES PRESERVED FROM NEW DASHBOARD FOR UNIQUE ELEMENTS --- */
+        /* --- START: New Stylish Teacher Card CSS --- */
+
+        .top-teachers {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); /* Slightly wider cards */
+            gap: 24px;
+        }
+
+        /* --- Main Card Style (Glassmorphism) --- */
+        .teacher-card {
+            background: rgba(255, 255, 255, 0.1); /* Semi-transparent background */
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px); /* For Safari */
+            border-radius: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            text-align: center;
+            padding: 24px;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease-in-out;
+        }
+
+        /* --- Hover Effect (Glowing Border & Shadow) --- */
+        .teacher-card:hover {
+            transform: translateY(-8px) scale(1.02);
+            border-color: rgba(255, 255, 255, 0.5);
+            box-shadow: 0 0 25px rgba(252, 165, 165, 0.2); /* Soft pink glow */
+        }
+
+        /* --- Teacher Image (Bigger & Square) --- */
+        .teacher-card img {
+            width: 180px;   /* Increased size */
+            height: 180px;  /* Increased size */
+            object-fit: cover;
+            border-radius: 16px; /* From circle to rounded square */
+            border: 4px solid rgba(255, 255, 255, 0.5);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            margin-bottom: 20px;
+        }
+
+        /* --- Rank Badge Style --- */
+        .teacher-card .rank {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            background-color: #ffc107;
+            color: #212529;
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            border: 2px solid #fff;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            z-index: 2; /* Ensure it's above the image */
+        }
+
+        /* --- Text Info Styling (Bright Text) --- */
+        .teacher-info .name {
+            font-weight: 700;
+            font-size: 1.2em;
+            margin: 0 0 4px 0;
+        }
+
+        .teacher-info .name a,
+        .teacher-info .details {
+            color: #FFFFFF; /* Make text white */
+            text-decoration: none;
+            transition: color .2s;
+            text-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        }
+
+        .teacher-info .name a:hover {
+            color: #ffc107; /* Use the rank badge color for hover */
+        }
+
+        .teacher-info .details {
+            font-size: 1em;
+            color: #e0e0e0; /* Slightly off-white for subtitle */
+        }
+
+        /* --- END: New Stylish Teacher Card CSS --- */
+        #rankingTableContainer {
+            display: none;
+            overflow-x: auto;
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid #dee2e6;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        }
+        .ranking-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        .ranking-table td,
+        .ranking-table th {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid #dee2e6;
+        }
+        .ranking-table thead {
+            background-color: #f8f9fa;
+        }
+        .ranking-table tbody tr:hover {
+            background-color: #f1f3f5;
+        }
+        .ranking-table a {
+            color: #007bff;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        .ranking-table a:hover {
+            text-decoration: underline;
+        }
+        /* removed ranking score column styles */
+
+        /* --- START: New Rules for Header and Single-Line Filters --- */
+        /* New Main Header for Title and Buttons */
+        .main-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 16px;
+            margin-bottom: 8px;
+        }
+
+        /* New Dashboard Title Styling */
+        .dashboard-title {
+            color: #ffffff;
+            font-weight: 700;
+            font-size: 24px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.25);
+        }
+
+        /* Make the filter container take up the full width and not wrap */
+        .date-filter-container {
+            flex-wrap: nowrap; /* This is the key to force a single line */
+            width: 100%;
+        }
+
+        /* Make each filter group grow and shrink to fill the space evenly */
+        .date-input-group {
+            flex: 1 1 auto; /* Allows groups to share space */
+            min-width: 140px; /* Set a minimum sensible width */
+        }
+
+        /* Handle long text in dropdowns with an ellipsis (...) */
+        .date-input-group select {
+            width: 100%; /* Ensure select takes up full width of its container */
+            text-overflow: ellipsis;
+        }
+
+        /* Remove the old action-buttons container from the filter bar */
+        .header-section .action-buttons {
+            display: none;
+        }
+        /* --- END: New Rules --- */
+        /* --- START: New CSS for Spacing and Tooltips --- */
+
+        /* Adds more vertical space above the KPI cards */
+        .stats-container {
+            margin-top: 20px;
+        }
+
+        /* Adds more vertical space above the 'Top Teachers' title */
+        h2 {
+            margin-top: 24px;
+        }
+
+        /* General Tooltip Styles */
+        .tooltip-container {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px; /* Space between title and icon */
+        }
+
+        .tooltip-icon {
+            display: inline-block;
+            cursor: help;
+            color: #eee;
+            font-size: 20px;
+            font-weight: bold;
+            font-style: normal;
+            line-height: 1;
+        }
+
+        .tooltip-icon::before {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 125%; /* Position above the icon */
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #333;
+            color: #fff;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 500;
+            line-height: 1.4;
+            white-space: normal;
+            text-align: left;
+            z-index: 1000;
+            pointer-events: none;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.2s, visibility 0.2s;
+            width: 280px; /* Give the tooltip some width */
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+
+        .tooltip-container:hover .tooltip-icon::before {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .dashboard-container > h2 {
+            font-size: 20px; 
+        }
+
+        #kpiQualityMix {
+            font-size: 14px !important; 
+            line-height: 1.2; 
+        }
+
+        /* Specific Styles for KPI Card Tooltips */
+        .stat-card .tooltip-container {
+            justify-content: center;
+            gap: 4px; /* Smaller gap for compact cards */
+            margin-bottom: 6px; /* Replaces the h3's original margin */
+        }
+
+        .stat-card .tooltip-container h3 {
+            margin-bottom: 0; /* Remove margin from h3 as container now handles it */
+        }
+
+        .stat-card .tooltip-icon {
+            font-size: 14px; /* Smaller icon for the card */
+            color: #999;
+        }
+
+        .stat-card .tooltip-icon::before {
+            bottom: 110%; /* Adjust position to be closer */
+            width: 220px;  /* Narrower tooltip text box */
+            font-family: 'Inter', sans-serif;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="dashboard-container" id="mainContainer" style="display: none;">
+        
+        <div class="main-header">
+            <div style="display: flex; gap: 8px;">
+                <a href="comments.html" class="btn-3d btn-export">Analyze Comments</a>
+                <button id="exportReportBtn" class="btn-3d btn-export">Export Comp Report</button>
+            </div>
+            <h1 class="dashboard-title">FACULTY RATING DASHBOARD</h1>
+            <div style="display: flex; gap: 8px;">
+                <button id="refreshDashboardBtn" class="btn-3d btn-refresh">Refresh</button>
+                <button id="resetFiltersBtn" class="btn-3d btn-refresh">Reset Filters</button>
+                <button id="logoutBtn" class="btn-3d btn-refresh">Logout</button>
+            </div>
+        </div>
+        <div class="header-section">
+            <div class="date-filter-container">
+                <div class="date-input-group"><label for="startDate">Start Date</label><input type="date" id="startDate"></div>
+                <div class="date-input-group"><label for="endDate">End Date</label><input type="date" id="endDate"></div>
+                <div class="date-input-group"><label for="branchFilter">Center</label><select id="branchFilter"><option value="all">All Centers</option></select></div>
+                <div class="date-input-group"><label for="expertiseFilter">Expertise</label><select id="expertiseFilter"><option value="all">All Expertise</option></select></div>
+                <div class="date-input-group"><label for="teacherFilter">Teacher</label><select id="teacherFilter"><option value="all">All Teachers</option></select></div>
+                <div class="date-input-group"><label for="batchFilter">Batch</label><select id="batchFilter"><option value="all">All Batches</option></select></div>
+            </div>
+        </div>
+
+        <div class="stats-container">
+            <div class="kpi-group">
+                <h4 class="kpi-group-title">Overall Performance Metrics</h4>
+                <div class="kpi-group-cards grid-4">
+                    <div class="stat-card">
+                        <div class="tooltip-container">
+                            <h3>Enrolled Students</h3>
+                            <span class="tooltip-icon" data-tooltip="The total number of unique students who enrolled within the selected filters and date range.">ℹ️</span>
+                        </div>
+                        <div id="kpiEnrolled" class="value">-</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="tooltip-container">
+                            <h3>Responding Students</h3>
+                            <span class="tooltip-icon" data-tooltip="The total number of unique students who submitted at least one feedback form.">ℹ️</span>
+                        </div>
+                        <div id="kpiResponded" class="value">-</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="tooltip-container">
+                            <h3>Total Teachers</h3>
+                            <span class="tooltip-icon" data-tooltip="The total count of unique teachers who received at least one feedback response in the selected period.">ℹ️</span>
+                        </div>
+                        <div id="kpiTotalTeachers" class="value">-</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="tooltip-container">
+                            <h3>Eligible Teachers</h3>
+                            <span class="tooltip-icon" data-tooltip="The number of teachers who have received the minimum required number of unique student responses (30) to be included in the rankings.">ℹ️</span>
+                        </div>
+                        <div id="kpiEligibleTeachers" class="value">-</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="tooltip-container">
+                            <h3>Quality Mix</h3>
+                            <span class="tooltip-icon" data-tooltip="A breakdown of all feedback received: Excellent (>=4.5 rating), Okay (4.0-4.49), and At-Risk (<4.0).">ℹ️</span>
+                        </div>
+                        <div id="kpiQualityMix" class="value" style="font-size: 1rem;">-</div>
+                        <div id="kpiQualitySub" class="sub-value"></div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="tooltip-container">
+                            <h3>Consistency Index</h3>
+                            <span class="tooltip-icon" data-tooltip="Measures rating variation across different parameters (e.g., Delivery, Engagement). A lower score means more consistent feedback.">ℹ️</span>
+                        </div>
+                        <div id="kpiConsistency" class="value">-</div>
+                        <div class="sub-value">Lower is better</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="tooltip-container">
+                            <h3>Time to Feedback</h3>
+                            <span class="tooltip-icon" data-tooltip="The median number of days between a student's admission date and when they submit their first feedback.">ℹ️</span>
+                        </div>
+                        <div id="kpiTimeToFeedback" class="value">-</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="tooltip-container">
+                            <h3>First Feedback Rate</h3>
+                            <span class="tooltip-icon" data-tooltip="The percentage of responding students who also have an admission record within the selected date range.">ℹ️</span>
+                        </div>
+                        <div id="kpiFirstTimeRate" class="value">-</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <h2>
+            <div class="tooltip-container">⭐ Top Rated Teachers 
+                <span class="tooltip-icon" data-tooltip="Sorted by Average Rating (desc). Tie‑breakers: Unique Students, then Name.">ℹ️</span>
+            </div>
+        </h2>
+        <div id="topTeachers" class="top-teachers"></div>
+        <div style="text-align:center; margin:20px 0;">
+            <button id="expandBtn" class="btn-3d btn-export">Expand Full Rankings</button>
+        </div>
+
+        <div id="rankingTableContainer">
+             <h2>Full Teacher Rankings</h2>
+            <div style="display:flex; align-items:center; gap:16px; margin:8px 0;">
+                <label style="display:flex; align-items:center; gap:6px;">
+                    <input type="checkbox" id="filterFullTime" checked>
+                    <span style="font-weight:600;">Full Time Faculty Only</span>
+                </label>
+                <label style="display:flex; align-items:center; gap:6px;">
+                    <input type="checkbox" id="filterLectureBased" checked>
+                    <span style="font-weight:600;">Lecture Based Only</span>
+                </label>
+            </div>
+            <!-- ranking score toggle removed -->
+            <table id="rankingTable" class="ranking-table">
+                <thead><tr><th>Rank</th><th>Name</th><th>Center</th><th>Subjects</th><th>Avg. Rating</th><th>Unique Students</th><th>Subject Knowledge</th><th>Approachability</th><th>Lecture Delivery</th><th>Student Engagement</th></tr></thead>
+                <tbody id="rankingTableBody"></tbody>
+            </table>
+        </div>
+        
+        <hr style="width:100%; border-color: rgba(255,255,255,0.2); margin: 20px 0;">
+
+        <div class="charts-grid">
+            <div class="chart-container"><h4 id="primaryChartTitle">Performance by Center</h4><canvas id="primaryChart"></canvas></div>
+            <div class="chart-container"><h4>Performance Trend</h4><canvas id="trendChart"></canvas></div>
+            <div class="chart-container span-two-columns"><h4>Top 15 Performing Batches</h4><canvas id="batchChart"></canvas></div>
+            <div class="chart-container"><h4>Average Parameter Profile</h4><canvas id="volumeChart"></canvas></div>
+            <div class="chart-container"><h4 style="display:flex;justify-content:space-between;align-items:center;">Branch-wise Parameter Heatmap <button id="expandHeatmapBtn" class="btn-3d btn-refresh" style="height:28px;padding:6px 10px;font-size:10px;">Expand</button></h4><canvas id="heatmapChart"></canvas></div>
+        </div>
+        </div>
+    
+    <div id="loader">
+        <div class="spinner"></div>
+        Loading Dashboard Data...
+    </div>
+
+    <!-- Heatmap Modal -->
+    <div id="heatmapModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:9999; align-items:center; justify-content:center;">
+        <div style="width:90vw; height:90vh; background:#fff; border-radius:12px; padding:12px; position:relative; display:flex; flex-direction:column;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; gap:12px;">
+                <h4 style="margin:0;">Branch-wise Parameter Heatmap</h4>
+                <div id="heatmapLegendModal" style="display:flex; align-items:center; gap:8px; flex:1; max-width:420px; margin-left:auto;">
+                    <span style="font-size:12px;color:#666;">3.0</span>
+                    <div style="flex:1;height:10px;border-radius:6px; background: linear-gradient(90deg, #fff9c4, #fdd835, #fbc02d); border:1px solid #ddd;"></div>
+                    <span style="font-size:12px;color:#666;">5.0</span>
+                </div>
+                <button id="closeHeatmapBtn" class="btn-3d btn-refresh" style="height:32px; padding:6px 12px; font-size:12px;">Close</button>
+            </div>
+            <div style="flex:1; min-height:0;">
+                <canvas id="heatmapChartLarge"></canvas>
+            </div>
+        </div>
+    </div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+
+        // Session guard: ensure user arrived via Index.html login
+        const SESSION_ROLE = sessionStorage.getItem('authRole');
+        const SESSION_CENTER_LABEL = sessionStorage.getItem('authCenterLabel');
+        if (!SESSION_ROLE) { window.location.href = 'Index.html'; return; }
+
+        const API_URL = "https://raw.githubusercontent.com/rajnishpandey21/fac_rat_data/main/manifest.json"; 
+        const MIN_RESPONSES_FOR_RANKING = 30;
+        const TOP_N_BATCHES_TO_SHOW = 15;
+        const MIN_REVIEWS_FOR_BATCH_CHART = 5; 
+        const BATCH_RATING_WEIGHT = 0.7;
+        
+        const CACHE_KEY = 'dashboardApiData';
+        const CACHE_TIMESTAMP_KEY = 'dashboardApiTimestamp';
+        const CACHE_DURATION = 15 * 60 * 1000; // 15 minutes
+
+        let allData = [];
+        let admissionsData = [];
+        let primaryChart, trendChart, batchChart, volumeChart;
+        let scheduleRender;
+        let heatmapChartInstance, heatmapChartLargeInstance;
+
+        const startDateEl = document.getElementById('startDate');
+        const endDateEl = document.getElementById('endDate');
+        const branchFilterEl = document.getElementById('branchFilter');
+        const expertiseFilterEl = document.getElementById('expertiseFilter');
+        const teacherFilterEl = document.getElementById('teacherFilter');
+        const batchFilterEl = document.getElementById('batchFilter');
+        const topTeachersEl = document.getElementById('topTeachers');
+        const rankingTableBodyEl = document.getElementById('rankingTableBody');
+        const rankingTableContainer = document.getElementById('rankingTableContainer');
+        const expandBtn = document.getElementById('expandBtn');
+        const loaderEl = document.getElementById('loader');
+        const mainContainerEl = document.getElementById('mainContainer');
+        const primaryChartTitleEl = document.getElementById('primaryChartTitle');
+        const rankingTableEl = document.getElementById('rankingTable');
+        const exportReportBtn = document.getElementById('exportReportBtn');
+        const resetFiltersBtn = document.getElementById('resetFiltersBtn');
+        const refreshDashboardBtn = document.getElementById('refreshDashboardBtn'); // New button reference
+        const logoutBtn = document.getElementById('logoutBtn');
+        const expandHeatmapBtn = document.getElementById('expandHeatmapBtn');
+        const heatmapModalEl = document.getElementById('heatmapModal');
+        const closeHeatmapBtn = document.getElementById('closeHeatmapBtn');
+        const filterFullTimeEl = document.getElementById('filterFullTime');
+        const filterLectureBasedEl = document.getElementById('filterLectureBased');
+        
+        const kpiEnrolledEl = document.getElementById('kpiEnrolled');
+        const kpiRespondedEl = document.getElementById('kpiResponded');
+        const kpiTotalTeachersEl = document.getElementById('kpiTotalTeachers');
+        const kpiEligibleTeachersEl = document.getElementById('kpiEligibleTeachers');
+        const kpiQualityMixEl = document.getElementById('kpiQualityMix');
+        const kpiQualitySubEl = document.getElementById('kpiQualitySub');
+        const kpiConsistencyEl = document.getElementById('kpiConsistency');
+        const kpiTimeToFeedbackEl = document.getElementById('kpiTimeToFeedback');
+        const kpiFirstTimeRateEl = document.getElementById('kpiFirstTimeRate');
+
+        // Register external plugins
+        if (window.ChartDataLabels) { try { Chart.register(ChartDataLabels); } catch(e) {} }
+
+        // Normalize/merge expertise labels for consistency across UI and filtering
+        function getNormalizedExpertise(raw) {
+            const val = String(raw || '').trim();
+            if (!val) return '';
+            const lower = val.toLowerCase();
+            if (lower === 'demo') return ''; // remove Demo from UI
+            if (lower === 'special lectures' || lower === 'special lecture') return ''; // remove Special lectures
+            if (lower === 'economy') return 'Economics';
+            if (lower === 'maths') return 'Mathematics';
+            // Title-case fallback (preserve common casing as-is otherwise)
+            return val;
+        }
+
+        // Normalize branch names for consistency
+        function getNormalizedBranch(raw) {
+            const val = String(raw || '').trim();
+            if (!val) return '';
+            const lower = val.toLowerCase();
+            if (lower === 'prayagraj lkt') return 'Prayagraj';
+            return val;
+        }
+
+        // Lecture-based faculty list (case-insensitive)
+        const lectureBasedSet = new Set([
+            'Sanjay Singh',
+            'Swayanjeet behera',
+            'Deependra Pratap Singh',
+            'Dharmendra Sinha',
+            'Abhishek Rawat',
+            'Jay Bairagi',
+            'Pooja Jaiswal',
+            'Prasenjit Saha',
+            'Debarka Nandi',
+            'Rajib Chakraborty',
+            'Shubhra Jyoti Dutta',
+            'Sutapa Dutta',
+            'Priyanka Dey',
+            'Anjan Kumar',
+            'Krishna Murari',
+            'Kundan Kapoor',
+            'Deepak Kumar',
+            'Kaushal Bhargava',
+            'Nitin Kumar',
+            'Rajkumar Yadav',
+            'Manish Kumar Mishra',
+            'Anik Misra',
+            'Samriddhi Bagchi',
+            'Vipin Shukla',
+            'Sandeep Kumar Pandey'
+        ].map(n => String(n).trim().toLowerCase()));
+
+        function isLectureBased(name) {
+            return lectureBasedSet.has(String(name || '').trim().toLowerCase());
+        }
+
+        function getCachedData() {
+            const cachedTimestamp = localStorage.getItem(CACHE_TIMESTAMP_KEY);
+            if (!cachedTimestamp) return null;
+
+            const isCacheValid = (new Date().getTime() - parseInt(cachedTimestamp, 10)) < CACHE_DURATION;
+            if (isCacheValid) {
+                const cachedData = localStorage.getItem(CACHE_KEY);
+                return cachedData ? JSON.parse(cachedData) : null;
+            }
+            console.log("Cache expired.");
+            return null;
+        }
+
+        function setCachedData(data) {
+            try {
+                localStorage.setItem(CACHE_KEY, JSON.stringify(data));
+                localStorage.setItem(CACHE_TIMESTAMP_KEY, new Date().getTime().toString());
+                console.log("Data cached successfully.");
+            } catch (e) {
+                console.error("Failed to cache data:", e);
+            }
+        }
+
+        function resetFilters() {
+            const today = new Date();
+            const defaultStartDate = new Date(today.getFullYear(), today.getMonth(), 1);
+            endDateEl.value = today.toISOString().split("T")[0];
+            startDateEl.value = defaultStartDate.toISOString().split("T")[0];
+            if (SESSION_ROLE === 'center' && SESSION_CENTER_LABEL) {
+                branchFilterEl.value = SESSION_CENTER_LABEL;
+            } else {
+                branchFilterEl.value = 'all';
+            }
+            expertiseFilterEl.value = 'all';
+            teacherFilterEl.value = 'all';
+            batchFilterEl.value = 'all';
+            renderDashboard();
+        }
+
+        const debounce = (fn, wait) => { let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn.apply(null, args), wait); }; };
+        
+        const setupDefaults = () => {
+            const today = new Date(), defaultStartDate = new Date(today.getFullYear(), today.getMonth(), 1);
+            scheduleRender = debounce(renderDashboard, 200);
+            endDateEl.value = today.toISOString().split("T")[0];
+            startDateEl.value = defaultStartDate.toISOString().split("T")[0];
+            
+            expandBtn.addEventListener("click", () => {
+                const show = rankingTableContainer.style.display === "none";
+                rankingTableContainer.style.display = show ? "block" : "none";
+                expandBtn.textContent = show ? "Hide Full Rankings" : "Expand Full Rankings";
+            });
+            [startDateEl, endDateEl, branchFilterEl, expertiseFilterEl, teacherFilterEl, batchFilterEl, filterFullTimeEl, filterLectureBasedEl].forEach(el => el && el.addEventListener("change", scheduleRender));
+            if (expandHeatmapBtn) expandHeatmapBtn.addEventListener('click', () => {
+                if (!heatmapModalEl) return;
+                heatmapModalEl.style.display = 'flex';
+                // render large heatmap when opening
+                if (heatmapChartLargeInstance) heatmapChartLargeInstance.destroy();
+                const data = getCurrentHeatmapData();
+                heatmapChartLargeInstance = createHeatmapChart('heatmapChartLarge', data, true);
+            });
+            if (closeHeatmapBtn) closeHeatmapBtn.addEventListener('click', () => {
+                if (!heatmapModalEl) return;
+                heatmapModalEl.style.display = 'none';
+                if (heatmapChartLargeInstance) { heatmapChartLargeInstance.destroy(); heatmapChartLargeInstance = null; }
+            });
+
+            resetFiltersBtn.addEventListener('click', resetFilters);
+            exportReportBtn.addEventListener('click', exportComparisonReport);
+            refreshDashboardBtn.addEventListener('click', () => location.reload()); // New event listener
+            if (logoutBtn) logoutBtn.addEventListener('click', () => { sessionStorage.clear(); window.location.href = 'Index.html'; });
+        };
+
+        const fetchData = async () => {
+            if ("YOUR_GOOGLE_APPS_SCRIPT_URL_HERE" === API_URL) return void(loaderEl.textContent = "Error: Please update the API_URL in the script section.");
+            
+            const processPayload = (payload) => {
+                Array.isArray(payload) ? (allData = payload, admissionsData = []) : (allData = payload.reviews || [], admissionsData = payload.admissions || []);
+                if (allData.length > 0) {
+                    populateFilters();
+                    // Lock center selection for center role
+                    if (SESSION_ROLE === 'center' && SESSION_CENTER_LABEL) {
+                        try {
+                            branchFilterEl.value = SESSION_CENTER_LABEL;
+                            branchFilterEl.disabled = true;
+                        } catch (e) {}
+                    } else {
+                        branchFilterEl.disabled = false;
+                    }
+                    renderDashboard();
+                    loaderEl.style.display = "none";
+                    mainContainerEl.style.display = "block";
+                } else {
+                    loaderEl.textContent = "No data received from the API.";
+                }
+            };
+            
+            try {
+                console.log("Fetching data manifest from GitHub...");
+                const manifestResponse = await fetch(API_URL);
+                if (!manifestResponse.ok) throw new Error(`HTTP error! status: ${manifestResponse.status}`);
+                const manifest = await manifestResponse.json();
+
+                const baseUrl = API_URL.substring(0, API_URL.lastIndexOf('/') + 1);
+                const reviewPromises = manifest.review_files.map(file => 
+                    fetch(baseUrl + file).then(res => res.json())
+                );
+                
+                const reviewChunks = await Promise.all(reviewPromises);
+                const combinedReviews = [].concat(...reviewChunks);
+                
+                const payload = {
+                    reviews: combinedReviews,
+                    admissions: manifest.admissions || []
+                };
+
+                setCachedData(payload); 
+                processPayload(payload);
+
+            } catch (a) {
+                console.error("Failed to fetch data:", a);
+                loaderEl.textContent = `Failed to load data. Error: ${a.message}`;
+            }
+        };
+
+        
+        const populateFilters = () => {
+            const branches = [...new Set(allData.map(a => getNormalizedBranch(a.teacherBranch)))].sort();
+            const expertise = [...new Set(allData.map(a => getNormalizedExpertise(a.expertise)).filter(Boolean))].sort();
+            const batches = [...new Set(allData.map(a => `${a.batchId} - ${a.course}`))].sort();
+            const workingData = allData.filter(a => a.teacherStatus === 'Working');
+            const uniqueTeachers = workingData.reduce((map, row) => {
+                if (!map.has(row.teacherId)) map.set(row.teacherId, row.teacherName);
+                return map;
+            }, new Map());
+            const teachers = [...uniqueTeachers.entries()].sort((a, b) => a[1].localeCompare(b[1]));
+            branches.forEach(a => branchFilterEl.add(new Option(a, a)));
+            expertise.forEach(a => expertiseFilterEl.add(new Option(a, a)));
+            teachers.forEach(([id, name]) => teacherFilterEl.add(new Option(name, id)));
+            batches.forEach(a => batchFilterEl.add(new Option(a, a)));
+        };
+
+        const recomputeDependentFilters = (filters) => {
+            const inDate = (d) => d.timestamp >= filters.startDate && d.timestamp <= filters.endDate;
+            const inBranch = (d) => filters.branch === 'all' || getNormalizedBranch(d.teacherBranch) === filters.branch;
+            const base = allData.filter(d => inDate(d) && inBranch(d) && d.teacherStatus === 'Working');
+
+            // Expertise options based on base (date + branch), normalized and excluding Demo
+            const availableExpertise = [...new Set(base.map(d => getNormalizedExpertise(d.expertise)).filter(Boolean))].sort();
+
+            // Teacher options depend on current expertise selection as well
+            const teacherScoped = base.filter(d => {
+                if (filters.expertise === 'all') return true;
+                return getNormalizedExpertise(d.expertise) === filters.expertise;
+            });
+            const teacherMap = teacherScoped.reduce((map, d) => {
+                if (!map.has(d.teacherId)) map.set(d.teacherId, d.teacherName);
+                return map;
+            }, new Map());
+            const availableTeachers = [...teacherMap.entries()].sort((a, b) => a[1].localeCompare(b[1]));
+
+            // Batches within base
+            const batchSet = new Set();
+            base.forEach(d => batchSet.add(`${d.batchId} - ${d.course}`));
+            const availableBatches = [...batchSet].sort();
+
+            const resetSelectOptions = (selectEl, defaultLabel, allowedValues) => {
+                const prev = selectEl.value;
+                selectEl.innerHTML = '';
+                selectEl.add(new Option(defaultLabel, 'all'));
+                allowedValues.forEach(v => selectEl.add(new Option(v, v)));
+                if (allowedValues.includes(prev)) selectEl.value = prev; else selectEl.value = 'all';
+            };
+
+            resetSelectOptions(expertiseFilterEl, 'All Expertise', availableExpertise);
+            // Manually rebuild teacher options to keep value as id and label as name
+            const prevTeacher = teacherFilterEl.value;
+            teacherFilterEl.innerHTML = '';
+            teacherFilterEl.add(new Option('All Teachers', 'all'));
+            availableTeachers.forEach(([id, name]) => teacherFilterEl.add(new Option(name, id)));
+            if ([...teacherMap.keys()].includes(prevTeacher)) teacherFilterEl.value = prevTeacher; else teacherFilterEl.value = 'all';
+
+            resetSelectOptions(batchFilterEl, 'All Batches', availableBatches);
+        };
+        
+        const calculateConsistencyIndex = (reviews) => {
+            if (!reviews || reviews.length < 2) return 0;
+            const params = ['subjectKnowledge', 'approachability', 'lectureDelivery', 'studentEngagement'];
+            const values = params.map(p => reviews.map(d => d.ratings[p]).filter(v => typeof v === 'number'));
+
+            const cvs = values.map(arr => {
+                if (arr.length < 2) return 0;
+                const mean = arr.reduce((a, b) => a + b, 0) / arr.length;
+                if (mean === 0) return 0;
+                const sd = Math.sqrt(arr.reduce((s, v) => s + (v - mean) ** 2, 0) / (arr.length - 1));
+                return sd / mean;
+            });
+
+            return cvs.length ? (cvs.reduce((a, b) => a + b, 0) / cvs.length) : 0;
+        };
+
+        const median = (arr) => { if(arr.length===0) return 0; const a=[...arr].sort((x,y)=>x-y); const m=Math.floor(a.length/2); return a.length%2?a[m]:(a[m-1]+a[m])/2; };
+        const unique = (arr) => Array.from(new Set(arr));
+        const updateKpis = (filteredData, filters) => { const startDate = new Date(startDateEl.value); const endDate = new Date(endDateEl.value); const selectedBranch = branchFilterEl.value; const selectedTeacher = teacherFilterEl.value; let admissionsScoped = admissionsData || []; if (selectedBranch !== 'all') { admissionsScoped = admissionsScoped.filter(a => (a.branchAliases || (a.branch ? [a.branch] : [])).includes(selectedBranch)); } else if (selectedTeacher !== 'all') { const teacherRows = filteredData.filter(r => r.teacherId === selectedTeacher); const teacherBranch = teacherRows.length ? teacherRows[0].teacherBranch : ''; if (teacherBranch) admissionsScoped = admissionsScoped.filter(a => (a.branchAliases || (a.branch ? [a.branch] : [])).includes(teacherBranch)); } admissionsScoped = admissionsScoped.filter(a => a.admissionDate >= startDate.getTime() && a.admissionDate <= endDate.getTime()+86399999); const uniqueEnrolled = unique(admissionsScoped.map(a => a.regNo)).length; kpiEnrolledEl.textContent = uniqueEnrolled.toLocaleString(); const uniqueResponded = unique(filteredData.map(d => d.studentRegNo)).length; kpiRespondedEl.textContent = uniqueResponded.toLocaleString(); const workingTeachers = unique(filteredData.filter(d => d.teacherStatus === 'Working').map(d => d.teacherId)); kpiTotalTeachersEl.textContent = workingTeachers.length.toLocaleString(); const stats = calculateTeacherStats(filteredData); const eligibleCount = stats.filter(t => t.uniqueResponses >= MIN_RESPONSES_FOR_RANKING).length; kpiEligibleTeachersEl.textContent = eligibleCount.toLocaleString(); const ratings = filteredData.map(d => d.avgRating).filter(v => typeof v === 'number'); const excellentPct = ratings.length ? (ratings.filter(v => v >= 4.5).length / ratings.length) * 100 : 0; const okayPct = ratings.length ? (ratings.filter(v => v < 4.5 && v >= 4.0).length / ratings.length) * 100 : 0; const atriskPct = ratings.length ? (ratings.filter(v => v < 4.0).length / ratings.length) * 100 : 0; kpiQualityMixEl.textContent = `Excellent ${excellentPct.toFixed(0)}% · Okay ${okayPct.toFixed(0)}% · At-Risk ${atriskPct.toFixed(0)}%`; kpiQualitySubEl.textContent = '≥4.5 · 4.0–<4.5 · <4.0'; const pci = calculateConsistencyIndex(filteredData); kpiConsistencyEl.textContent = pci ? pci.toFixed(2) : '0.00'; const firstReviewTsByReg = {}; filteredData.forEach(r => { if(!firstReviewTsByReg[r.studentRegNo] || r.timestamp < firstReviewTsByReg[r.studentRegNo]) firstReviewTsByReg[r.studentRegNo] = r.timestamp; }); const admissionByReg = {}; admissionsScoped.forEach(a => { if(!admissionByReg[a.regNo] || a.admissionDate < admissionByReg[a.regNo]) admissionByReg[a.regNo] = a.admissionDate; }); const deltas = Object.keys(firstReviewTsByReg).map(reg => { const a = admissionByReg[reg]; if(!a) return null; return (firstReviewTsByReg[reg] - a) / 86400000; }).filter(v => v!==null && v>=0); const mtf = median(deltas); kpiTimeToFeedbackEl.textContent = isFinite(mtf) ? `${mtf.toFixed(1)} days` : '-'; const firsts = deltas.length; const firstTimeRate = uniqueResponded ? (firsts / uniqueResponded) * 100 : 0; kpiFirstTimeRateEl.textContent = `${firstTimeRate.toFixed(0)}%`; };
+        const calculateTeacherStats = (data) => { const statsMap=new Map;data.forEach(a=>{statsMap.has(a.teacherId)||statsMap.set(a.teacherId,{id:a.teacherId,name:a.teacherName,branch:getNormalizedBranch(a.teacherBranch),ratings:[],regNos:new Set,subjects:new Set,paramSums:{subjectKnowledge:0,approachability:0,lectureDelivery:0,studentEngagement:0}});const b=statsMap.get(a.teacherId);b.ratings.push(a.avgRating),b.regNos.add(a.studentRegNo);const normExp=getNormalizedExpertise(a.expertise);if(normExp) b.subjects.add(normExp);b.paramSums.subjectKnowledge+=a.ratings.subjectKnowledge,b.paramSums.approachability+=a.ratings.approachability,b.paramSums.lectureDelivery+=a.ratings.lectureDelivery,b.paramSums.studentEngagement+=a.ratings.studentEngagement});const finalStats=[];return statsMap.forEach(a=>{const b=a.ratings.length;if(b>0){const subjects=[...a.subjects].sort().join(', ');finalStats.push({...a,subjects,uniqueResponses:a.regNos.size,avgRating:a.ratings.reduce((a,b)=>a+b,0)/b,avgParams:{subjectKnowledge:a.paramSums.subjectKnowledge/b,approachability:a.paramSums.approachability/b,lectureDelivery:a.paramSums.lectureDelivery/b,studentEngagement:a.paramSums.studentEngagement/b}})}}),finalStats};
+        const rankTeachers = (stats) => { const eligible=stats.filter(a=>a.uniqueResponses>=MIN_RESPONSES_FOR_RANKING); if(0===eligible.length) return []; return eligible.sort((a,b)=>{ if(b.avgRating!==a.avgRating) return b.avgRating-a.avgRating; if(b.uniqueResponses!==a.uniqueResponses) return b.uniqueResponses-a.uniqueResponses; return a.name.localeCompare(b.name); }); };
+        
+        const renderTop5 = (rankedTeachers) => {
+            topTeachersEl.innerHTML = "";
+            const top5 = rankedTeachers.slice(0, 5);
+            if (top5.length === 0) {
+                topTeachersEl.innerHTML = '<p style="grid-column: 1 / -1; text-align:center; color: #fff;">Not enough data to display top teachers.</p>';
+                return;
+            }
+            top5.forEach((a, b) => {
+                topTeachersEl.innerHTML += `
+                    <div class="teacher-card">
+                        <div class="rank">${b + 1}</div>
+                        <img src="images/${a.id}.png" alt="${a.name}" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iIzU1NSI+PHBhdGggZD0iTTEyIDEyYzIuMjEgMCA0LTEuNzkgNC00cy0xLjc5LTQtNC00LTQgMS43OS00IDQgMS43OSA0IDQgNHptMCAyYy0yLjY3IDAtOCAxLjM0LTggNHYySDIwdi0yYzAtMi42Ni01LjMzLTQtOC00eiIvPjwvcGF0aD48L3N2Zz4=';">
+                        <div class="teacher-info">
+                            <p class="name"><a href="#" data-teacher-id="${a.id}" class="teacher-link">${a.name}</a></p>
+                            <p class="details">${a.branch} (${a.avgRating.toFixed(2)})</p>
+                            <p class="details" style="font-size:0.95em; opacity:0.9;">${a.subjects || ''}</p>
+                        </div>
+                    </div>`;
+            });
+        };
+
+        const renderRankingTable = (rankedTeachers) => {
+            rankingTableBodyEl.innerHTML = "";
+            // Apply Full Time / Lecture Based filters (both checked by default)
+            const showFullTime = filterFullTimeEl ? filterFullTimeEl.checked : true;
+            const showLecture = filterLectureBasedEl ? filterLectureBasedEl.checked : true;
+            const filtered = rankedTeachers.filter(t => {
+                const lect = isLectureBased(t.name);
+                return (showLecture && lect) || (showFullTime && !lect);
+            });
+            if (filtered.length === 0) {
+                rankingTableBodyEl.innerHTML = '<tr><td colspan="10" style="text-align:center;">No teachers meet the ranking criteria.</td></tr>';
+                return;
+            }
+            filtered.forEach((a, idx) => {
+                rankingTableBodyEl.innerHTML += `<tr><td>${idx + 1}</td><td><a href="#" data-teacher-id="${a.id}" class="teacher-link">${a.name}</a></td><td>${a.branch}</td><td>${a.subjects || ''}</td><td>${a.avgRating.toFixed(2)}</td><td>${a.uniqueResponses}</td><td>${a.avgParams.subjectKnowledge.toFixed(2)}</td><td>${a.avgParams.approachability.toFixed(2)}</td><td>${a.avgParams.lectureDelivery.toFixed(2)}</td><td>${a.avgParams.studentEngagement.toFixed(2)}</td></tr>`;
+            });
+        };
+
+        const wireTeacherLinks = () => {
+            document.querySelectorAll('.teacher-link').forEach(el => {
+                const newEl = el.cloneNode(true);
+                el.parentNode.replaceChild(newEl, el);
+
+                newEl.addEventListener('click', (ev) => {
+                    ev.preventDefault();
+                    const teacherId = newEl.getAttribute('data-teacher-id');
+                    const startDate = document.getElementById('startDate').value;
+                    const endDate = document.getElementById('endDate').value;
+                    const url = `teacher_details.html?teacherId=${teacherId}&startDate=${startDate}&endDate=${endDate}`;
+                    window.location.href = url;
+                });
+            });
+        };
+        
+        const renderDashboard = () => {
+            const filters = { startDate: new Date(startDateEl.value).getTime(), endDate: new Date(endDateEl.value).getTime() + 86399999, branch: branchFilterEl.value, expertise: expertiseFilterEl.value, teacher: teacherFilterEl.value, batch: batchFilterEl.value };
+            recomputeDependentFilters(filters);
+            const filteredData = allData.filter(d => { const batchIdentifier = `${d.batchId} - ${d.course}`; const dExp = getNormalizedExpertise(d.expertise); const dBranch = getNormalizedBranch(d.teacherBranch); return (d.timestamp >= filters.startDate && d.timestamp <= filters.endDate) && (filters.branch === 'all' || dBranch === filters.branch) && (filters.expertise === 'all' || dExp === filters.expertise) && (filters.teacher === 'all' || d.teacherId === filters.teacher) && (filters.batch === 'all' || batchIdentifier === filters.batch) && (d.teacherStatus === 'Working'); });
+            const teacherStats = calculateTeacherStats(filteredData);
+            const rankedTeachers = rankTeachers(teacherStats);
+            renderTop5(rankedTeachers);
+            renderRankingTable(rankedTeachers);
+            wireTeacherLinks();
+            renderPrimaryChart(filteredData, filters.branch);
+            renderTrendChart(filteredData, 'avgRating', 'trendChart', 'Performance Trend');
+            renderBatchChart(filteredData);
+            renderVolumeChart(filteredData, admissionsData);
+            renderHeatmapChart(filteredData);
+            updateKpis(filteredData, filters);
+        };
+        function getCurrentHeatmapData() {
+            const data = allData;
+            const start = new Date(startDateEl.value).getTime();
+            const end = new Date(endDateEl.value).getTime() + 86399999;
+            const selectedBranch = branchFilterEl.value;
+            const filtered = data.filter(d => d.timestamp >= start && d.timestamp <= end && d.teacherStatus === 'Working' && (selectedBranch==='all' || getNormalizedBranch(d.teacherBranch)===selectedBranch));
+            const params = ['subjectKnowledge','approachability','lectureDelivery','studentEngagement'];
+            const centers = [...new Set(filtered.map(d => getNormalizedBranch(d.teacherBranch)))].sort();
+            const byCenter = new Map();
+            filtered.forEach(r => {
+                const branch = getNormalizedBranch(r.teacherBranch);
+                if (!byCenter.has(branch)) byCenter.set(branch, []);
+                byCenter.get(branch).push(r);
+            });
+            const matrix = [];
+            centers.forEach((center, yi) => {
+                const rows = byCenter.get(center) || [];
+                const denom = rows.length || 1;
+                const sums = {subjectKnowledge:0,approachability:0,lectureDelivery:0,studentEngagement:0};
+                rows.forEach(r => { sums.subjectKnowledge += r.ratings.subjectKnowledge; sums.approachability += r.ratings.approachability; sums.lectureDelivery += r.ratings.lectureDelivery; sums.studentEngagement += r.ratings.studentEngagement; });
+                params.forEach((p, xi) => {
+                    const v = sums[p]/denom;
+                    matrix.push({ x: xi, y: yi, v, center, param: p });
+                });
+            });
+            return { centers, params, matrix };
+        }
+
+        function colorForValue(v) {
+            // Yellow palette (light to deep amber)
+            const stops = [
+                { t: 0.0, c: [255, 249, 196] }, // #fff9c4 very light yellow
+                { t: 0.5, c: [253, 216, 53]  }, // #fdd835 medium yellow
+                { t: 1.0, c: [251, 192, 45]  }  // #fbc02d deep amber
+            ];
+            const x = Math.max(0, Math.min(1, (v - 3.0) / 2.0));
+            let r=0,g=0,b=0;
+            for (let i=0;i<stops.length-1;i++) {
+                const a=stops[i], bStop=stops[i+1];
+                if (x>=a.t && x<=bStop.t) {
+                    const local=(x-a.t)/(bStop.t-a.t);
+                    r=Math.round(a.c[0]+(bStop.c[0]-a.c[0])*local);
+                    g=Math.round(a.c[1]+(bStop.c[1]-a.c[1])*local);
+                    b=Math.round(a.c[2]+(bStop.c[2]-a.c[2])*local);
+                    break;
+                }
+            }
+            return `rgba(${r},${g},${b},0.95)`;
+        }
+
+        function createHeatmapChart(canvasId, data, large=false) {
+            const ctx = document.getElementById(canvasId).getContext('2d');
+            const cellW = large ? Math.max(32, Math.floor((ctx.canvas.width - 120) / data.params.length)) : 28;
+            const cellH = large ? Math.max(22, Math.floor((ctx.canvas.height - 80) / Math.max(1,data.centers.length))) : 20;
+            return new Chart(ctx, {
+                type: 'matrix',
+                data: {
+                    datasets: [{
+                        label: 'Avg Score',
+                        data: data.matrix.map(d => ({ x: d.x, y: d.y, v: d.v })),
+                        backgroundColor: c => colorForValue(c.raw.v),
+                        width: cellW,
+                        height: cellH,
+                        borderWidth: 1,
+                        borderColor: 'rgba(0,0,0,0.1)'
+                    }]
+                },
+                options: {
+                    _isLarge: !!large,
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            type: 'linear',
+                            offset: true,
+                            position: 'top',
+                            ticks: {
+                                stepSize: 1,
+                                precision: 0,
+                                callback: (v) => Number.isInteger(v) ? (data.params[v] || '') : '',
+                                color: '#666',
+                                autoSkip: false,
+                                maxRotation: 0,
+                                minRotation: 0
+                            },
+                            grid: { display: true, color: 'rgba(0,0,0,0.06)' },
+                            min: -0.5,
+                            max: data.params.length - 0.5
+                        },
+                        y: {
+                            type: 'linear',
+                            offset: true,
+                            reverse: true,
+                            ticks: {
+                                stepSize: 1,
+                                precision: 0,
+                                callback: (v) => Number.isInteger(v) ? (data.centers[v] || '') : '',
+                                color: '#666',
+                                autoSkip: false
+                            },
+                            grid: { display: true, color: 'rgba(0,0,0,0.06)' },
+                            min: -0.5,
+                            max: data.centers.length - 0.5
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        datalabels: {
+                            display: (ctx) => !!ctx.chart?.config?.options?._isLarge,
+                            color: '#000',
+                            font: () => ({ weight: '700', size: 11 }),
+                            formatter: (value) => (typeof value.v === 'number') ? value.v.toFixed(1) : '',
+                            clip: true
+                        },
+                        tooltip: {
+                            callbacks: {
+                                title: (items) => {
+                                    const r = items[0].raw; return `${data.centers[r.y]} • ${data.params[r.x]}`;
+                                },
+                                label: (item) => `Avg: ${item.raw.v.toFixed(2)}`
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function renderHeatmapChart(filteredData) {
+            const data = getCurrentHeatmapData();
+            if (heatmapChartInstance) heatmapChartInstance.destroy();
+            heatmapChartInstance = createHeatmapChart('heatmapChart', data, false);
+        }
+
+        const renderPrimaryChart = (data, selectedBranch) => {
+            if (primaryChart) primaryChart.destroy();
+            let chartTitle, preppedData, xAxisTitle;
+            if (selectedBranch === 'all') {
+                chartTitle = "Performance by Center";
+                xAxisTitle = "Center";
+                const centerData = data.reduce((acc, item) => { const branch = getNormalizedBranch(item.teacherBranch); if (!acc[branch]) { acc[branch] = { ratings: [], regNos: new Set(), totalReviews: 0 }; } acc[branch].ratings.push(item.avgRating); acc[branch].regNos.add(item.studentRegNo); acc[branch].totalReviews++; return acc; }, {});
+                preppedData = Object.entries(centerData).map(([label, d]) => ({ label, avg: d.ratings.reduce((a, b) => a + b, 0) / d.ratings.length, uniqueStudents: d.regNos.size, totalReviews: d.totalReviews }));
+            } else {
+                chartTitle = `Performance by Teacher in ${selectedBranch}`;
+                xAxisTitle = "Teacher";
+                const teacherData = data.reduce((acc, item) => { if (!acc[item.teacherName]) { acc[item.teacherName] = { ratings: [], regNos: new Set(), totalReviews: 0 }; } acc[item.teacherName].ratings.push(item.avgRating); acc[item.teacherName].regNos.add(item.studentRegNo); acc[item.teacherName].totalReviews++; return acc; }, {});
+                preppedData = Object.entries(teacherData).map(([label, d]) => ({ label, avg: d.ratings.reduce((a, b) => a + b, 0) / d.ratings.length, uniqueStudents: d.regNos.size, totalReviews: d.totalReviews }));
+            }
+            preppedData.sort((a, b) => b.avg - a.avg);
+
+            primaryChart = new Chart(document.getElementById('primaryChart').getContext('2d'), {
+                type: 'bar',
+                data: {
+                    labels: preppedData.map(d => d.label),
+                    datasets: [{
+                        label: 'Average Rating',
+                        data: preppedData.map(d => d.avg),
+                        backgroundColor: 'rgba(102, 126, 234, 0.8)',
+                        borderColor: 'rgba(102, 126, 234, 1)',
+                        borderWidth: 1,
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    layout: {
+                        padding: { top: 10, bottom: 10, left: 10, right: 10 }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: false, min: 3.5, ticks: { color: '#666' }, grid: { color: '#ddd' },
+                            title: { display: true, text: 'Average Rating', color: '#333', font: { weight: 'bold' } }
+                        },
+                        x: {
+                            ticks: { color: '#666', autoSkip: false }, grid: { display: false },
+                            title: { display: true, text: xAxisTitle, color: '#333', font: { weight: 'bold' } }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: { callbacks: { title: (items) => items[0].label, label: (item) => `Avg. Rating: ${item.raw.toFixed(2)}`, afterLabel: (item) => { const details = preppedData[item.dataIndex]; return [`Unique Students: ${details.uniqueStudents}`, `Total Reviews: ${details.totalReviews}`]; } } }
+                    }
+                }
+            });
+            primaryChartTitleEl.textContent = chartTitle;
+        };
+        const renderTrendChart = (data, metric, canvasId, label) => {
+            const chartVarName = `trendChartInstance`;
+            if (window[chartVarName]) window[chartVarName].destroy();
+            const { startDate, endDate } = { startDate: new Date(startDateEl.value), endDate: new Date(endDateEl.value) };
+            const range = (endDate - startDate) / 86400000;
+            let unit = range <= 31 ? 'day' : (range <= 90 ? 'week' : 'month');
+            const trendData = data.reduce((acc, item) => { const d = new Date(item.timestamp); let key; if (unit === 'day') key = d.toISOString().split('T')[0]; else if (unit === 'week') { const day = d.getDay(); const diff = d.getDate() - day + (day === 0 ? -6 : 1); key = new Date(d.setDate(diff)).toISOString().split('T')[0]; } else key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; if (!acc[key]) acc[key] = []; acc[key].push(item); return acc; }, {});
+            const labels = Object.keys(trendData).sort();
+            const chartData = labels.map(label => { const ratings = trendData[label].map(d => d.avgRating); return ratings.reduce((a, b) => a + b, 0) / ratings.length; });
+            const reviewCounts = labels.map(label => trendData[label].length);
+            const dataMin = chartData.length ? Math.min(...chartData) : 0;
+            const dataMax = chartData.length ? Math.max(...chartData) : 5;
+            const yMin = Math.max(0, Math.floor(dataMin * 2) / 2);
+            const yMax = Math.min(5, Math.ceil(dataMax * 2) / 2);
+            
+            window[chartVarName] = new Chart(document.getElementById(canvasId).getContext('2d'), {
+                type: 'line',
+                data: {
+                    labels,
+                    datasets: [{
+                        label: 'Average Rating', data: chartData, fill: true,
+                        borderColor: 'rgba(118, 75, 162, 1)',
+                        backgroundColor: 'rgba(118, 75, 162, 0.1)',
+                        tension: 0.3
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    layout: {
+                        padding: { top: 10, bottom: 10, left: 10, right: 10 }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: false, min: yMin, max: yMax, ticks: { color: '#666', stepSize: 0.5 }, grid: { color: '#ddd' },
+                            title: { display: true, text: 'Average Rating', color: '#333', font: { weight: 'bold' } }
+                        },
+                        x: {
+                            ticks: { color: '#666' }, grid: { display: false },
+                            title: { display: true, text: 'Time Period', color: '#333', font: { weight: 'bold' } }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: { callbacks: { label: (item) => `Avg. Rating: ${item.raw.toFixed(2)}`, afterLabel: (item) => `Based on ${reviewCounts[item.dataIndex]} total reviews` } },
+                        datalabels: {
+                            formatter: (value) => (typeof value === 'number') ? value.toFixed(2) : '',
+                            color: 'rgba(118, 75, 162, 1)',
+                            backgroundColor: 'rgba(255,255,255,0.9)',
+                            borderColor: 'rgba(118, 75, 162, 0.3)',
+                            borderWidth: 1,
+                            borderRadius: 4,
+                            padding: { left: 4, right: 4, top: 1, bottom: 1 },
+                            font: { size: 10, weight: '600' },
+                            align: 'top',
+                            anchor: 'end',
+                            offset: 4,
+                            clip: false
+                        }
+                    }
+                }
+            });
+        };
+        const renderVolumeChart = (responses, admissions) => {
+            const chartVarName = 'volumeChartInstance';
+            if (window[chartVarName]) window[chartVarName].destroy();
+
+            // Compute average parameter scores across current filtered dataset
+            const params = ['subjectKnowledge','approachability','lectureDelivery','studentEngagement'];
+            const sums = {subjectKnowledge:0,approachability:0,lectureDelivery:0,studentEngagement:0};
+            let count = 0;
+            responses.forEach(r => {
+                if (r && r.ratings) {
+                    sums.subjectKnowledge += r.ratings.subjectKnowledge || 0;
+                    sums.approachability += r.ratings.approachability || 0;
+                    sums.lectureDelivery += r.ratings.lectureDelivery || 0;
+                    sums.studentEngagement += r.ratings.studentEngagement || 0;
+                    count += 1;
+                }
+            });
+            const avgs = params.map(p => count ? (sums[p]/count) : 0);
+
+            window[chartVarName] = new Chart(document.getElementById('volumeChart').getContext('2d'), {
+                type: 'radar',
+                data: {
+                    labels: ['Subject Knowledge','Approachability','Lecture Delivery','Student Engagement'],
+                    datasets: [{
+                        label: 'Average Parameter Score',
+                        data: avgs,
+                        backgroundColor: 'rgba(102,126,234,0.2)',
+                        borderColor: 'rgba(102,126,234,1)',
+                        pointBackgroundColor: 'rgba(102,126,234,1)'
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    scales: { r: { suggestedMin: 3.0, suggestedMax: 5.0, grid: { color: '#ddd' }, pointLabels: { color: '#666' }, ticks: { showLabelBackdrop: false, color: '#666' } } },
+                    plugins: { 
+                        legend: { display: false },
+                        datalabels: {
+                            formatter: (value) => (typeof value === 'number') ? value.toFixed(2) : '',
+                            color: '#111',
+                            backgroundColor: 'rgba(255,255,255,0.9)',
+                            borderColor: 'rgba(0,0,0,0.15)',
+                            borderWidth: 1,
+                            borderRadius: 6,
+                            padding: { top: 2, bottom: 2, left: 6, right: 6 },
+                            font: { weight: '700', size: 13 },
+                            anchor: 'end',
+                            align: 'end',
+                            offset: 6,
+                            clip: false
+                        }
+                    }
+                }
+            });
+        };
+        const renderBatchChart = (data) => {
+            if (batchChart) batchChart.destroy();
+            const batchData = data.reduce((acc, item) => { const key = `${item.batchId} - ${item.course}`; if (!acc[key]) acc[key] = { ratings: [], paramSums: { sk: 0, ap: 0, ld: 0, se: 0 } }; acc[key].ratings.push(item.avgRating); acc[key].paramSums.sk += item.ratings.subjectKnowledge; acc[key].paramSums.ap += item.ratings.approachability; acc[key].paramSums.ld += item.ratings.lectureDelivery; acc[key].paramSums.se += item.ratings.studentEngagement; return acc; }, {});
+            const batchAvgs = Object.entries(batchData).map(([key, d]) => ({ label: key, avg: d.ratings.reduce((a, b) => a + b, 0) / d.ratings.length, reviewCount: d.ratings.length, avgParams: { sk: (d.paramSums.sk / d.ratings.length).toFixed(2), ap: (d.paramSums.ap / d.ratings.length).toFixed(2), ld: (d.paramSums.ld / d.ratings.length).toFixed(2), se: (d.paramSums.se / d.ratings.length).toFixed(2), } }));
+            const eligibleBatches = batchAvgs.filter(batch => batch.reviewCount >= MIN_REVIEWS_FOR_BATCH_CHART);
+            if (eligibleBatches.length === 0) {
+                const ctx = document.getElementById('batchChart').getContext('2d');
+                ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+                ctx.font = "16px Inter";
+                ctx.fillStyle = "#666";
+                ctx.textAlign = "center";
+                ctx.fillText("Not enough data to display top batches.", ctx.canvas.width / 2, ctx.canvas.height / 2);
+                return;
+            }
+            // Revert to blended ranking: weighted rating and review count
+            const minRating = Math.min(...eligibleBatches.map(b => b.avg));
+            const maxRating = Math.max(...eligibleBatches.map(b => b.avg));
+            const minReviews = Math.min(...eligibleBatches.map(b => b.reviewCount));
+            const maxReviews = Math.max(...eligibleBatches.map(b => b.reviewCount));
+            const scoredBatches = eligibleBatches.map(batch => {
+                const normRating = (maxRating - minRating === 0) ? 1 : (batch.avg - minRating) / (maxRating - minRating);
+                const normReviews = (maxReviews - minReviews === 0) ? 1 : (batch.reviewCount - minReviews) / (maxReviews - minReviews);
+                const rankingScore = (BATCH_RATING_WEIGHT * normRating) + ((1 - BATCH_RATING_WEIGHT) * normReviews);
+                return { ...batch, rankingScore };
+            });
+            const topBatches = scoredBatches.sort((a, b) => b.rankingScore - a.rankingScore).slice(0, TOP_N_BATCHES_TO_SHOW).sort((a, b) => b.avg - a.avg);
+
+            batchChart = new Chart(document.getElementById('batchChart').getContext('2d'), {
+                type: 'bar',
+                data: {
+                    labels: topBatches.map(b => b.label),
+                    datasets: [{
+                        label: 'Average Rating', data: topBatches.map(b => b.avg),
+                        backgroundColor: 'rgba(102, 126, 234, 0.8)',
+                        borderColor: 'rgba(102, 126, 234, 1)',
+                        borderWidth: 1, borderRadius: 4
+                    }]
+                },
+                options: {
+                    indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+                    layout: {
+                        padding: { top: 10, bottom: 10, left: 10, right: 20 }
+                    },
+                    scales: {
+                        x: {
+                            beginAtZero: false, min: 3.5, ticks: { color: '#666' }, grid: { color: '#ddd' },
+                            title: { display: true, text: 'Average Rating', color: '#333', font: { weight: 'bold' } }
+                        },
+                        y: {
+                            ticks: { color: '#666' }, grid: { display: false },
+                            title: { display: true, text: 'Batch', color: '#333', font: { weight: 'bold' } }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: { callbacks: { title: (items) => items[0].label, label: (item) => `Avg. Rating: ${item.raw.toFixed(2)}`, afterLabel: (item) => { const details = topBatches[item.dataIndex]; return [`Total Reviews: ${details.reviewCount}`, `SK: ${details.avgParams.sk}, AP: ${details.avgParams.ap}, LD: ${details.avgParams.ld}, SE: ${details.avgParams.se}`]; } } }
+                    }
+                }
+            });
+        };
+
+        const getMonday = (d) => {
+            d = new Date(d);
+            const day = d.getDay();
+            const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+            const monday = new Date(d.setDate(diff));
+            monday.setHours(0, 0, 0, 0);
+            return monday;
+        };
+
+        const generatePeriodicData = (data, eligibleTeachers, period) => {
+            const startDate = new Date(startDateEl.value);
+            const endDate = new Date(endDateEl.value);
+
+            const periodKeys = new Set();
+            let current = (period === 'month') ? new Date(startDate.getFullYear(), startDate.getMonth(), 1) : getMonday(startDate);
+            
+            while (current <= endDate) {
+                let key;
+                if (period === 'month') {
+                    key = `${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, '0')}`;
+                    current.setMonth(current.getMonth() + 1);
+                } else {
+                    key = `${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, '0')}-${String(current.getDate()).padStart(2, '0')}`;
+                    current.setDate(current.getDate() + 7);
+                }
+                periodKeys.add(key);
+            }
+            const sortedPeriodKeys = Array.from(periodKeys).sort();
+
+            const groupedData = {};
+            const eligibleTeacherIds = new Set(eligibleTeachers.map(t => t.id));
+
+            for (const review of data) {
+                if (!eligibleTeacherIds.has(review.teacherId)) continue;
+
+                const reviewDate = new Date(review.timestamp);
+                let key;
+                if (period === 'month') {
+                    key = `${reviewDate.getFullYear()}-${String(reviewDate.getMonth() + 1).padStart(2, '0')}`;
+                } else {
+                    const monday = getMonday(reviewDate);
+                    key = `${monday.getFullYear()}-${String(monday.getMonth() + 1).padStart(2, '0')}-${String(monday.getDate()).padStart(2, '0')}`;
+                }
+
+                if (!groupedData[review.teacherId]) groupedData[review.teacherId] = {};
+                if (!groupedData[review.teacherId][key]) {
+                    groupedData[review.teacherId][key] = { reviews: [], regNos: new Set() };
+                }
+                groupedData[review.teacherId][key].reviews.push(review);
+                groupedData[review.teacherId][key].regNos.add(review.studentRegNo);
+            }
+
+            const reportData = [];
+            for (const teacher of eligibleTeachers) {
+                const row = {
+                    'Teacher Name': teacher.name,
+                    'Teacher ID': teacher.id,
+                    'Center': teacher.branch,
+                    'Overall Avg Rating': (typeof teacher.avgRating === 'number') ? teacher.avgRating.toFixed(2) : 'N/A'
+                };
+                
+                for (const periodKey of sortedPeriodKeys) {
+                    const periodData = groupedData[teacher.id]?.[periodKey];
+                    if (periodData && periodData.reviews.length > 0) {
+                        const totalRating = periodData.reviews.reduce((sum, r) => sum + r.avgRating, 0);
+                        const avgRating = totalRating / periodData.reviews.length;
+                        const uniqueStudents = periodData.regNos.size;
+                        const consistencyIndex = calculateConsistencyIndex(periodData.reviews);
+
+                        row[`${periodKey} Avg Rating`] = avgRating.toFixed(2);
+                        row[`${periodKey} Unique Students`] = uniqueStudents;
+                        row[`${periodKey} Consistency Index`] = consistencyIndex.toFixed(2);
+                    } else {
+                        row[`${periodKey} Avg Rating`] = '';
+                        row[`${periodKey} Unique Students`] = '';
+                        row[`${periodKey} Consistency Index`] = '';
+                    }
+                }
+                reportData.push(row);
+            }
+            return reportData;
+        };
+
+        async function exportComparisonReport() {
+            const originalText = exportReportBtn.textContent;
+            exportReportBtn.textContent = 'Generating...';
+            exportReportBtn.disabled = true;
+
+            try {
+                const filters = { startDate: new Date(startDateEl.value).getTime(), endDate: new Date(endDateEl.value).getTime() + 86399999, branch: branchFilterEl.value, expertise: expertiseFilterEl.value, teacher: teacherFilterEl.value, batch: batchFilterEl.value };
+                const filteredData = allData.filter(d => { const batchIdentifier = `${d.batchId} - ${d.course}`; return (d.timestamp >= filters.startDate && d.timestamp <= filters.endDate) && (filters.branch === 'all' || d.teacherBranch === filters.branch) && (filters.expertise === 'all' || d.expertise === filters.expertise) && (filters.teacher === 'all' || d.teacherId === filters.teacher) && (filters.batch === 'all' || batchIdentifier === filters.batch) && (d.teacherStatus === 'Working'); });
+                
+                const teacherStats = calculateTeacherStats(filteredData);
+                const rankedTeachers = rankTeachers(teacherStats);
+
+                if (rankedTeachers.length === 0) {
+                    alert("No eligible teachers found in the selected filter range to generate a report.");
+                    return;
+                }
+
+                const monthlyData = generatePeriodicData(filteredData, rankedTeachers, 'month');
+                const weeklyData = generatePeriodicData(filteredData, rankedTeachers, 'week');
+
+                const wb = XLSX.utils.book_new();
+                const ws_month = XLSX.utils.json_to_sheet(monthlyData);
+                const ws_week = XLSX.utils.json_to_sheet(weeklyData);
+
+                XLSX.utils.book_append_sheet(wb, ws_month, "Month Wise Comparison");
+                XLSX.utils.book_append_sheet(wb, ws_week, "Week Wise Comparison");
+
+                XLSX.writeFile(wb, "Faculty_Comparison_Report.xlsx");
+
+            } catch (error) {
+                console.error("Failed to generate report:", error);
+                alert("An error occurred while generating the report. See the console for details.");
+            } finally {
+                exportReportBtn.textContent = originalText;
+                exportReportBtn.disabled = false;
+            }
+        }
+
+        setupDefaults();
+        fetchData();
+    });
+</script>
+</body>
+</html>
