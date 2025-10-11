@@ -53,7 +53,7 @@
         document.addEventListener('DOMContentLoaded', () => {
             // If already authenticated, go straight to dashboard
             const existingRole = sessionStorage.getItem('authRole');
-            if (existingRole) { window.location.href = 'Dashboard.html'; return; }
+            if (existingRole) { window.location.href = 'dashboard.html'; return; }
 
             // Constants shared with dashboard
             const API_URL = "https://raw.githubusercontent.com/rajnishpandey21/fac_rat_data/main/manifest.json";
@@ -178,7 +178,7 @@
                 if (u === adminCreds.username && p === adminCreds.password) {
                     sessionStorage.setItem('authRole', 'admin');
                     sessionStorage.removeItem('authCenterLabel');
-                    window.location.href = 'Dashboard.html';
+                    window.location.href = 'dashboard.html';
                 } else {
                     adminError.textContent = 'Invalid admin credentials.';
                 }
@@ -195,7 +195,7 @@
                 if (expected && pass === expected) {
                     sessionStorage.setItem('authRole', 'center');
                     sessionStorage.setItem('authCenterLabel', label);
-                    window.location.href = 'Dashboard.html';
+                    window.location.href = 'dashboard.html';
                 } else {
                     centerError.textContent = 'Incorrect password for selected center.';
                 }
