@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teacher Details</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <style>
+        /* --- GENERAL STYLES --- */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body { height: 100%; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #310e68;
+            background-image: linear-gradient(316deg, #310e68 0%, #5f0f40 74%);
+            color: #333;
+            padding: 8px;
+            overflow-y: auto; 
+            overflow-x: hidden;
+        }
+        .container { max-width: 1600px; width: 100%; margin: 0 auto; padding: 5px 8px 15px 8px; animation: slideIn 0.4s ease-out; }
+        @keyframes slideIn { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* --- Page Header --- */
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            background: rgba(255, 255, 255, 0.98);
+            padding: 10px 24px;
+            border-radius: 16px;
+            border: 2px solid #2f2f2f;
+            box-shadow: 0 4px 0 #2f2f2f, 0 6px 20px rgba(0, 0, 0, 0.12);
+        }
+        .page-title { color: #333; font-weight: 700; font-size: 24px; text-shadow: none; }
+
+        /* --- 3D Button Styles --- */
+        .btn-3d {
+            padding: 12px 20px; font-weight: 600; font-size: 12px; border: none; border-radius: 12px; cursor: pointer;
+            transition: all 0.3s ease; font-family: 'Inter', sans-serif; text-transform: uppercase; letter-spacing: 0.5px;
+            position: relative; transform-style: preserve-3d; height: 44px; text-decoration: none; display: inline-flex;
+            align-items: center; justify-content: center;
+        }
+        .back-link { background: linear-gradient(145deg, #ffffff, #f0f0f0); color: #333; border: 1px solid #ddd; box-shadow: 0 4px 0 #c0c0c0, 0 6px 12px rgba(0, 0, 0, 0.1); }
+        .back-link:hover { transform: translateY(-1px); background: linear-gradient(145deg, #f0f0f0, #e0e0e0); box-shadow: 0 5px 0 #c0c0c0, 0 8px 16px rgba(0, 0, 0, 0.15); }
+        .back-link:active { transform: translateY(2px); box-shadow: 0 2px 0 #c0c0c0, 0 4px 8px rgba(0, 0, 0, 0.1); }
+        .btn-primary { background: linear-gradient(145deg, #4a3aff, #6254ff); color: white; box-shadow: 0 4px 0 #3027b3, 0 6px 12px rgba(74, 58, 255, 0.3); width: 100%; margin-top: 10px; }
+        .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 5px 0 #3027b3, 0 8px 16px rgba(74, 58, 255, 0.4); }
+        .btn-primary:active { transform: translateY(2px); box-shadow: 0 2px 0 #3027b3, 0 4px 8px rgba(74, 58, 255, 0.2); }
+        
+        /* --- Main Content Layout --- */
+        .page-body { padding: 0; display: grid; gap: 24px; grid-template-columns: 350px 1fr; }
+
+        /* --- Shared Card Style --- */
+        .card {
+            background: rgba(255, 255, 255, 0.98); padding: 20px; border-radius: 16px; border: 2px solid #2f2f2f;
+            box-shadow: 0 4px 0 #2f2f2f, 0 6px 20px rgba(0, 0, 0, 0.12); transition: all 0.2s ease;
+            display: flex; flex-direction: column;
+        }
+        .card:hover { transform: translateY(-1px); box-shadow: 0 4px 0 #2f2f2f, 0 6px 14px rgba(0, 0, 0, 0.18); }
+
+        /* --- Chart Grid --- */
+        .charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+        .chart-container { height: 350px; }
+        .card h2 { font-size: 14px; font-weight: 700; color: #333; margin-bottom: 12px; text-align: center; text-transform: uppercase; letter-spacing: 0.4px; }
+        
+        /* --- Teacher Summary & Batches --- */
+        .teacher-summary { gap: 16px; }
+        .teacher-summary img { width: 180px; height: 180px; border-radius: 16px; object-fit: cover; border: 4px solid #fff; box-shadow: 0 4px 12px rgba(0,0,0,0.2); align-self: center; background-color: #eee; }
+        .teacher-meta { font-size: 0.95rem; color: #666; }
+        .batches-box { display: flex; flex-direction: column; flex-grow: 1; }
+        
+        /* --- Feedback Box --- */
+        #teacherFeedbackList, #batchListContainer {
+            flex-grow: 1;
+            overflow-y: auto;
+            height: 500px; /* ** NEW: Fixed height for scrollable areas ** */
+        }
+        .feedback-item { background: #f9f9f9; border: 1px solid #eee; border-radius: 8px; padding: 12px; margin-bottom: 10px; font-size: 0.9em; }
+        .feedback-item .tag { font-size: 0.75rem; color: #fff; background-color: #667eea; border-radius: 4px; padding: 2px 6px; margin-right: 8px; font-weight: 500; }
+        .feedback-content + .feedback-content { margin-top: 8px; }
+        #feedback-footer { padding-top: 15px; border-top: 1px solid #eee; margin-top: auto; display:flex; gap:10px; }
+        #loadMoreFeedbackBtn, #exportFeedbackCsvBtn { width: 100%; margin-top: 0; }
+
+        /* --- Batch Performance Item --- */
+        .batch-perf-item { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 8px; padding: 4px 0; }
+        .batch-perf-item span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 0.9em; }
+        .batch-perf-bar-container { flex-shrink: 0; width: 120px; background-color: #e0e0e0; border-radius: 4px; height: 20px; position: relative; text-align: center; border: 1px solid #ccc; }
+        .batch-perf-bar { position: absolute; left: 0; top: 0; height: 100%; background: linear-gradient(135deg, #667eea, #764ba2); border-radius: 3px; }
+        .batch-perf-bar-text { position: relative; z-index: 1; font-size: 0.8em; line-height: 20px; font-weight: bold; color: white; text-shadow: 0 1px 1px rgba(0,0,0,0.4); }
+
+        /* --- Modal Styles --- */
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.6); display: none; justify-content: center; align-items: center; z-index: 1000; backdrop-filter: blur(5px); }
+        .modal-content { background: #fff; border-radius: 16px; padding: 24px; width: 75%; height: 75%; display: flex; flex-direction: column; box-shadow: 0 10px 30px rgba(0,0,0,0.2); border: 2px solid #2f2f2f; }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; padding-bottom: 10px; border-bottom: 1px solid #ddd; }
+        .modal-header h2 { font-size: 1.5rem; color: #333; }
+        #closeModalBtn { font-size: 2.5rem; font-weight: 300; line-height: 1; border: none; background: transparent; cursor: pointer; color: #888; }
+        .modal-body { flex-grow: 1; overflow-y: auto; padding-right: 10px; }
+        .modal-footer { margin-top: 16px; text-align: right; }
+        #exportCsvBtn { width: auto; margin-top: 0; }
+
+        /* --- Loading Spinner --- */
+        #loader { text-align: center; font-size: 1.2em; padding: 50px; color: white; }
+        #loader .spinner { border: 8px solid rgba(255,255,255,0.3); border-top: 8px solid #fff; border-radius: 50%; width: 60px; height: 60px; animation: spin 1s linear infinite; margin: 20px auto; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div id="loader"><div class="spinner"></div>Loading teacher data...</div>
+
+        <div id="pageContent" style="display:none;">
+            <div class="page-header">
+                <h1 class="page-title" id="teacherModalTitle">Teacher Details</h1>
+                <a href="dashboard.html" class="back-link btn-3d">← Back to Dashboard</a>
+            </div>
+            <div class="page-body" id="pageBody">
+                <div class="teacher-summary card">
+                    <img id="teacherModalPhoto" src="" alt="Teacher Photo">
+                    <div>
+                        <div style="font-weight:700; font-size:1.1rem;" id="teacherModalName"></div>
+                        <div class="teacher-meta" id="teacherModalBranch"></div>
+                        <div class="teacher-meta" id="teacherModalRating"></div>
+                        <div class="teacher-meta" id="teacherModalSubjects"></div>
+                        <button id="modalViewCommentsBtn" class="btn-3d btn-primary">View All Comments</button>
+                    </div>
+                    <div class="batches-box">
+                         <h2 style="text-align:left; margin-bottom: 10px;">Batches</h2>
+                         <button id="expandBatchesBtn" class="btn-3d btn-primary" style="width:100%; margin-bottom:10px;">Expand All</button>
+                        <div id="batchListContainer"></div>
+                    </div>
+                </div>
+                
+                <div>
+                    <div class="charts-grid">
+                        <div class="chart-container card"><h2 style="margin-top:0;">Ability Radar</h2><canvas id="teacherRadar"></canvas></div>
+                        <div class="chart-container card"><h2 style="margin-top:0;">Monthly Rating Trend</h2><canvas id="teacherTrend"></canvas></div>
+                    </div>
+                    <div class="card feedback-box" style="margin-top:24px;">
+                        <h2 style="margin-top:0;">Feedback</h2>
+                        <div id="teacherFeedbackList"></div>
+                        <div id="feedback-footer">
+                            <button id="exportFeedbackCsvBtn" class="btn-3d btn-primary">Export All to CSV</button>
+                            <button id="loadMoreFeedbackBtn" class="btn-3d btn-primary">Load More</button>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <div id="batchesModal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalBatchTitle">All Batches</h2>
+                <button id="closeModalBtn" title="Close">&times;</button>
+            </div>
+            <div class="modal-body"><div id="modalBatchList"></div></div>
+            <div class="modal-footer"><button id="exportCsvBtn" class="btn-3d btn-primary">Export to CSV</button></div>
+        </div>
+    </div>
+
+
+<script>
+        const API_URL = "https://raw.githubusercontent.com/rajnishpandey21/fac_rat_data/main/manifest.json";
+        function getNormalizedExpertise(raw){
+            const val = String(raw || '').trim();
+            if(!val) return '';
+            const lower = val.toLowerCase();
+            if(lower === 'demo') return '';
+            if(lower === 'special lectures' || lower === 'special lecture') return '';
+            if(lower === 'economy') return 'Economics';
+            if(lower === 'maths') return 'Mathematics';
+            return val;
+        }
+        let batchPerformanceData = []; 
+        let allFeedbackItems = [];
+        let displayedFeedbackCount = 0;
+        const FEEDBACK_PAGE_SIZE = 10;
+        const FEEDBACK_INITIAL_LOAD = 5;
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            const params = new URLSearchParams(window.location.search);
+            const teacherId = params.get('teacherId');
+            const startDate = params.get('startDate');
+            const endDate = params.get('endDate');
+            const loaderEl = document.getElementById('loader');
+            const pageContentEl = document.getElementById('pageContent');
+
+            if (!teacherId) { loaderEl.innerHTML = 'Error: No Teacher ID provided.'; return; }
+
+            try {
+                console.log("Fetching data manifest from GitHub...");
+                const manifestResponse = await fetch(API_URL);
+                if (!manifestResponse.ok) throw new Error(`HTTP Error: ${manifestResponse.status}`);
+                const manifest = await manifestResponse.json();
+
+                const baseUrl = API_URL.substring(0, API_URL.lastIndexOf('/') + 1);
+
+                // Fetch all data part files concurrently
+                const reviewPromises = manifest.review_files.map(file => 
+                    fetch(baseUrl + file).then(res => res.json())
+                );
+                
+                const reviewChunks = await Promise.all(reviewPromises);
+                
+                // Combine the chunks into a single array
+                const allData = [].concat(...reviewChunks);
+                
+                // Original logic continues from here
+                const startTs = new Date(startDate).getTime();
+                const endTs = new Date(endDate).getTime() + 86399999;
+                const teacherData = allData.filter(d => d.teacherId === teacherId && d.timestamp >= startTs && d.timestamp <= endTs);
+                
+                // Get the teacher's center to show all center feedback
+                const teacherCenter = teacherData.length > 0 ? teacherData[0].teacherBranch : '';
+                const centerData = allData.filter(d => d.teacherBranch === teacherCenter && d.timestamp >= startTs && d.timestamp <= endTs);
+
+                if (teacherData.length === 0) { 
+                    loaderEl.innerHTML = 'No data found for this teacher in the selected date range.'; 
+                    return; 
+                }
+                
+                renderTeacherDetails(teacherData, teacherId, startDate, endDate, centerData);
+                loaderEl.style.display = 'none';
+                pageContentEl.style.display = 'block';
+
+            } catch (e) { 
+                loaderEl.innerHTML = `Failed to load data. Error: ${e.message}`; 
+            }
+        });
+        
+        function renderTeacherDetails(tData, teacherId, startDate, endDate, centerData) {
+            const teacherName = tData[0].teacherName;
+            
+            document.getElementById('teacherModalTitle').textContent = `Details for ${teacherName}`;
+            document.getElementById('teacherModalPhoto').src = `images/${teacherId}.png`;
+            document.getElementById('teacherModalName').textContent = teacherName;
+            const centers = [...new Set(tData.map(d => d.teacherBranch))].sort().join(', ');
+            document.getElementById('teacherModalBranch').textContent = `Center(s): ${centers}`;
+
+            // Compute teacher rating (overall avg across selected range)
+            const overallAvg = (tData.reduce((sum, r) => sum + r.avgRating, 0) / tData.length) || 0;
+            document.getElementById('teacherModalRating').textContent = `Overall Rating: ${overallAvg.toFixed(2)}`;
+
+            // Subjects from expertise/course dimension
+                const subjects = [...new Set(tData.map(d => getNormalizedExpertise(d.expertise) || d.course))].filter(Boolean).sort().join(', ');
+            if (subjects) {
+                document.getElementById('teacherModalSubjects').textContent = `Subjects: ${subjects}`;
+            }
+            document.getElementById('modalViewCommentsBtn').onclick = () => window.open(`comments.html?${new URLSearchParams(window.location.search).toString()}`, '_blank');
+            
+            const batches = [...new Set(tData.map(d => `${d.batchId} - ${d.course}`))];
+            batchPerformanceData = batches.map(batchName => {
+                const batchReviews = tData.filter(d => `${d.batchId} - ${d.course}` === batchName);
+                const avgRating = batchReviews.reduce((sum, r) => sum + r.avgRating, 0) / (batchReviews.length || 1);
+                return { name: batchName, avgRating };
+            }).sort((a, b) => b.avgRating - a.avgRating);
+            
+            document.getElementById('batchListContainer').innerHTML = batchPerformanceData.map(b => `
+                <div class="batch-perf-item">
+                    <span title="${b.name}">${b.name}</span>
+                    <div class="batch-perf-bar-container">
+                        <div class="batch-perf-bar" style="width: ${(b.avgRating / 5) * 100}%;"></div>
+                        <span class="batch-perf-bar-text">${b.avgRating.toFixed(2)}</span>
+                    </div>
+                </div>`).join('');
+
+            // --- Charts Rendering ---
+            const radarChartOptions = { scales:{ r: { suggestedMin:0, suggestedMax:5, pointLabels: { font: { size: 11 } } } }, plugins:{ legend:{ display:false } }, maintainAspectRatio: false, layout: { padding: { bottom: 20 } } };
+            const avg = (arr) => arr.reduce((s,v) => s+v,0)/(arr.length||1);
+            const sk = avg(tData.map(d => d.ratings.subjectKnowledge));
+            const ap = avg(tData.map(d => d.ratings.approachability));
+            const ld = avg(tData.map(d => d.ratings.lectureDelivery));
+            const se = avg(tData.map(d => d.ratings.studentEngagement));
+            new Chart(document.getElementById('teacherRadar').getContext('2d'),{type:'radar',data:{labels:['Subject Knowledge','Approachability','Lecture Delivery','Engagement'],datasets:[{label:'Average',data:[sk,ap,ld,se],backgroundColor:'rgba(54,162,235,0.2)',borderColor:'rgba(54,162,235,1)'}]}, options: radarChartOptions});
+            
+            const bucketKey = (ts) => { const d=new Date(ts); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; };
+            const buckets = tData.reduce((acc,item)=>{const key=bucketKey(item.timestamp);if(!acc[key])acc[key]=[];acc[key].push(item.avgRating);return acc;},{});
+            const labels=Object.keys(buckets).sort();
+            const series=labels.map(k=>avg(buckets[k]));
+            new Chart(document.getElementById('teacherTrend').getContext('2d'),{type:'line',data:{labels,datasets:[{label:'Avg. Rating (Monthly)',data:series,borderColor:'rgba(232,73,29,1)',fill:false,tension:0.1}]},options:{scales:{y:{min:3.5,suggestedMax:5}},plugins:{legend:{display:false}},maintainAspectRatio:false, layout: { padding: { left: 5, right: 10, bottom: 20 }}}});
+
+            // --- ** SIMPLIFIED Feedback Section Logic - Now using center data instead of teacher data ** ---
+            allFeedbackItems = centerData.map(d => ({date:new Date(d.timestamp), comment:(d.comments||'').toString().trim(), suggestion:(d.suggestions||'').toString().trim(), studentRegNo:d.studentRegNo, teacherName:d.teacherName})).filter(x=>x.comment||x.suggestion).sort((a,b)=>b.date-a.date);
+            
+            const feedbackListEl = document.getElementById('teacherFeedbackList');
+            const loadMoreBtn = document.getElementById('loadMoreFeedbackBtn');
+            const exportFeedbackBtn = document.getElementById('exportFeedbackCsvBtn');
+            
+            function renderFeedback(isLoadMore = false) {
+                if (!isLoadMore) {
+                    displayedFeedbackCount = Math.min(FEEDBACK_INITIAL_LOAD, allFeedbackItems.length);
+                } else {
+                    displayedFeedbackCount = Math.min(displayedFeedbackCount + FEEDBACK_PAGE_SIZE, allFeedbackItems.length);
+                }
+
+                const itemsToRender = allFeedbackItems.slice(0, displayedFeedbackCount);
+                feedbackListEl.innerHTML = itemsToRender.map(item => {
+                    const dateStr = item.date.toISOString().split('T')[0];
+                    const studentLink = item.studentRegNo ? `<a href="student_lookup.html?regNo=${item.studentRegNo}&startDate=${startDate}&endDate=${endDate}" target="_blank" style="color:#6c95c2; text-decoration:underline;">${item.studentRegNo}</a>` : 'Anonymous';
+                    const teacherInfo = item.teacherName ? ` | Teacher: ${item.teacherName}` : '';
+                    const commentHTML = item.comment ? `<div class="feedback-content"><span class="tag">Comment</span>${item.comment}</div>` : '';
+                    const suggestionHTML = item.suggestion ? `<div class="feedback-content"><span class="tag">Suggestion</span>${item.suggestion}</div>` : '';
+                    return `<div class="feedback-item"><div class="teacher-meta">${dateStr} | Student: ${studentLink}${teacherInfo}</div>${commentHTML}${suggestionHTML}</div>`;
+                }).join('');
+
+                loadMoreBtn.style.display = displayedFeedbackCount < allFeedbackItems.length ? 'inline-flex' : 'none';
+            }
+
+            if (allFeedbackItems.length === 0) {
+                feedbackListEl.innerHTML = '<div class="teacher-meta">No feedback in the selected filters.</div>';
+                loadMoreBtn.style.display = 'none';
+                exportFeedbackBtn.style.display = 'none';
+            } else {
+                renderFeedback(); // Initial render
+                loadMoreBtn.addEventListener('click', () => renderFeedback(true));
+                exportFeedbackBtn.addEventListener('click', () => exportFeedbackToCsv(teacherName));
+            }
+
+            setupModalLogic(teacherName);
+        }
+
+        function setupModalLogic(teacherName) {
+            const expandBtn = document.getElementById('expandBatchesBtn');
+            const batchesModal = document.getElementById('batchesModal');
+            const closeModalBtn = document.getElementById('closeModalBtn');
+            
+            expandBtn.addEventListener('click', () => {
+                const modalList = document.getElementById('modalBatchList');
+                modalList.innerHTML = batchPerformanceData.map(b => `
+                <div class="batch-perf-item" style="padding: 8px 4px; border-bottom: 1px solid #eee;">
+                    <span title="${b.name}" style="font-size: 1em;">${b.name}</span>
+                    <div class="batch-perf-bar-container">
+                        <div class="batch-perf-bar" style="width: ${(b.avgRating / 5) * 100}%;"></div>
+                        <span class="batch-perf-bar-text">${b.avgRating.toFixed(2)}</span>
+                    </div>
+                </div>`).join('');
+                document.getElementById('modalBatchTitle').textContent = `All Batches for ${teacherName}`;
+                batchesModal.style.display = 'flex';
+            });
+            
+            const closeModal = () => { batchesModal.style.display = 'none'; };
+            closeModalBtn.addEventListener('click', closeModal);
+            batchesModal.addEventListener('click', (e) => { if (e.target === batchesModal) closeModal(); });
+
+            document.getElementById('exportCsvBtn').addEventListener('click', () => {
+                let csvContent = `"Batch Name","Average Rating"\r\n`;
+                batchPerformanceData.forEach(item => {
+                    csvContent += `"${item.name.replace(/"/g, '""')}","${item.avgRating.toFixed(2)}"\r\n`;
+                });
+                downloadCsv(csvContent, `${teacherName}_batches_export.csv`);
+            });
+        }
+        
+        function exportFeedbackToCsv(teacherName) {
+            let csvContent = `"Date","Student","Teacher","Type","Feedback"\r\n`;
+            allFeedbackItems.forEach(item => {
+                const student = item.studentRegNo || 'Anonymous';
+                const teacher = item.teacherName || '';
+                const date = item.date.toISOString().split('T')[0];
+                const clean = (text) => `"${text.replace(/"/g, '""')}"`;
+
+                if (item.comment) { csvContent += `${date},${student},${teacher},"Comment",${clean(item.comment)}\r\n`; }
+                if (item.suggestion) { csvContent += `${date},${student},${teacher},"Suggestion",${clean(item.suggestion)}\r\n`; }
+            });
+            downloadCsv(csvContent, `${teacherName}_center_feedback_export.csv`);
+        }
+
+        function downloadCsv(csvContent, fileName) {
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            const url = URL.createObjectURL(blob);
+            link.setAttribute("href", url);
+            link.setAttribute("download", fileName);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    </script>
+</body>
+</html>
