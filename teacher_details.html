@@ -240,7 +240,7 @@
             const teacherName = tData[0].teacherName;
             
             document.getElementById('teacherModalTitle').textContent = `Details for ${teacherName}`;
-            document.getElementById('teacherModalPhoto').src = `images/${teacherId}.png`;
+            document.getElementById('teacherModalPhoto').src = `IMAGES/${teacherId}.png`;
             document.getElementById('teacherModalName').textContent = teacherName;
             const centers = [...new Set(tData.map(d => d.teacherBranch))].sort().join(', ');
             document.getElementById('teacherModalBranch').textContent = `Center(s): ${centers}`;
@@ -387,3 +387,4 @@
     </script>
 </body>
 </html>
+
