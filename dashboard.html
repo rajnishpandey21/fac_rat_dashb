@@ -876,6 +876,7 @@
             'Pooja Jaiswal',
             'Prasenjit Saha',
             'Debarka Nandi',
+            'Debarka Nandy',
             'Rajib Chakraborty',
             'Shubhra Jyoti Dutta',
             'Sutapa Dutta',
@@ -1102,7 +1103,7 @@
         const median = (arr) => { if(arr.length===0) return 0; const a=[...arr].sort((x,y)=>x-y); const m=Math.floor(a.length/2); return a.length%2?a[m]:(a[m-1]+a[m])/2; };
         const unique = (arr) => Array.from(new Set(arr));
         const updateKpis = (filteredData, filters) => { const startDate = new Date(startDateEl.value); const endDate = new Date(endDateEl.value); const selectedBranch = branchFilterEl.value; const selectedTeacher = teacherFilterEl.value; let admissionsScoped = admissionsData || []; if (selectedBranch !== 'all') { admissionsScoped = admissionsScoped.filter(a => (a.branchAliases || (a.branch ? [a.branch] : [])).includes(selectedBranch)); } else if (selectedTeacher !== 'all') { const teacherRows = filteredData.filter(r => r.teacherId === selectedTeacher); const teacherBranch = teacherRows.length ? teacherRows[0].teacherBranch : ''; if (teacherBranch) admissionsScoped = admissionsScoped.filter(a => (a.branchAliases || (a.branch ? [a.branch] : [])).includes(teacherBranch)); } admissionsScoped = admissionsScoped.filter(a => a.admissionDate >= startDate.getTime() && a.admissionDate <= endDate.getTime()+86399999); const uniqueEnrolled = unique(admissionsScoped.map(a => a.regNo)).length; kpiEnrolledEl.textContent = uniqueEnrolled.toLocaleString(); const uniqueResponded = unique(filteredData.map(d => d.studentRegNo)).length; kpiRespondedEl.textContent = uniqueResponded.toLocaleString(); const workingTeachers = unique(filteredData.filter(d => d.teacherStatus === 'Working').map(d => d.teacherId)); kpiTotalTeachersEl.textContent = workingTeachers.length.toLocaleString(); const stats = calculateTeacherStats(filteredData); const eligibleCount = stats.filter(t => t.uniqueResponses >= MIN_RESPONSES_FOR_RANKING).length; kpiEligibleTeachersEl.textContent = eligibleCount.toLocaleString(); const ratings = filteredData.map(d => d.avgRating).filter(v => typeof v === 'number'); const excellentPct = ratings.length ? (ratings.filter(v => v >= 4.5).length / ratings.length) * 100 : 0; const okayPct = ratings.length ? (ratings.filter(v => v < 4.5 && v >= 4.0).length / ratings.length) * 100 : 0; const atriskPct = ratings.length ? (ratings.filter(v => v < 4.0).length / ratings.length) * 100 : 0; kpiQualityMixEl.textContent = `Excellent ${excellentPct.toFixed(0)}% · Okay ${okayPct.toFixed(0)}% · At-Risk ${atriskPct.toFixed(0)}%`; kpiQualitySubEl.textContent = '≥4.5 · 4.0–<4.5 · <4.0'; const pci = calculateConsistencyIndex(filteredData); kpiConsistencyEl.textContent = pci ? pci.toFixed(2) : '0.00'; const firstReviewTsByReg = {}; filteredData.forEach(r => { if(!firstReviewTsByReg[r.studentRegNo] || r.timestamp < firstReviewTsByReg[r.studentRegNo]) firstReviewTsByReg[r.studentRegNo] = r.timestamp; }); const admissionByReg = {}; admissionsScoped.forEach(a => { if(!admissionByReg[a.regNo] || a.admissionDate < admissionByReg[a.regNo]) admissionByReg[a.regNo] = a.admissionDate; }); const deltas = Object.keys(firstReviewTsByReg).map(reg => { const a = admissionByReg[reg]; if(!a) return null; return (firstReviewTsByReg[reg] - a) / 86400000; }).filter(v => v!==null && v>=0); const mtf = median(deltas); kpiTimeToFeedbackEl.textContent = isFinite(mtf) ? `${mtf.toFixed(1)} days` : '-'; const firsts = deltas.length; const firstTimeRate = uniqueResponded ? (firsts / uniqueResponded) * 100 : 0; kpiFirstTimeRateEl.textContent = `${firstTimeRate.toFixed(0)}%`; };
-        const calculateTeacherStats = (data) => { const statsMap=new Map;data.forEach(a=>{statsMap.has(a.teacherId)||statsMap.set(a.teacherId,{id:a.teacherId,name:a.teacherName,branch:getNormalizedBranch(a.teacherBranch),ratings:[],regNos:new Set,subjects:new Set,paramSums:{subjectKnowledge:0,approachability:0,lectureDelivery:0,studentEngagement:0}});const b=statsMap.get(a.teacherId);b.ratings.push(a.avgRating),b.regNos.add(a.studentRegNo);const normExp=getNormalizedExpertise(a.expertise);if(normExp) b.subjects.add(normExp);b.paramSums.subjectKnowledge+=a.ratings.subjectKnowledge,b.paramSums.approachability+=a.ratings.approachability,b.paramSums.lectureDelivery+=a.ratings.lectureDelivery,b.paramSums.studentEngagement+=a.ratings.studentEngagement});const finalStats=[];return statsMap.forEach(a=>{const b=a.ratings.length;if(b>0){const subjects=[...a.subjects].sort().join(', ');finalStats.push({...a,subjects,uniqueResponses:a.regNos.size,avgRating:a.ratings.reduce((a,b)=>a+b,0)/b,avgParams:{subjectKnowledge:a.paramSums.subjectKnowledge/b,approachability:a.paramSums.approachability/b,lectureDelivery:a.paramSums.lectureDelivery/b,studentEngagement:a.paramSums.studentEngagement/b}})}}),finalStats};
+        const calculateTeacherStats = (data) => { const statsMap=new Map;data.forEach(a=>{statsMap.has(a.teacherId)||statsMap.set(a.teacherId,{id:a.teacherId,name:a.teacherName,branch:getNormalizedBranch(a.teacherBranch),employeeId:a.employeeId,ratings:[],regNos:new Set,subjects:new Set,paramSums:{subjectKnowledge:0,approachability:0,lectureDelivery:0,studentEngagement:0}});const b=statsMap.get(a.teacherId);b.ratings.push(a.avgRating),b.regNos.add(a.studentRegNo);const normExp=getNormalizedExpertise(a.expertise);if(normExp) b.subjects.add(normExp);b.paramSums.subjectKnowledge+=a.ratings.subjectKnowledge,b.paramSums.approachability+=a.ratings.approachability,b.paramSums.lectureDelivery+=a.ratings.lectureDelivery,b.paramSums.studentEngagement+=a.ratings.studentEngagement});const finalStats=[];return statsMap.forEach(a=>{const b=a.ratings.length;if(b>0){const subjects=[...a.subjects].sort().join(', ');finalStats.push({...a,subjects,uniqueResponses:a.regNos.size,avgRating:a.ratings.reduce((a,b)=>a+b,0)/b,avgParams:{subjectKnowledge:a.paramSums.subjectKnowledge/b,approachability:a.paramSums.approachability/b,lectureDelivery:a.paramSums.lectureDelivery/b,studentEngagement:a.paramSums.studentEngagement/b}})}}),finalStats};
         const rankTeachers = (stats) => { const eligible=stats.filter(a=>a.uniqueResponses>=MIN_RESPONSES_FOR_RANKING); if(0===eligible.length) return []; return eligible.sort((a,b)=>{ if(b.avgRating!==a.avgRating) return b.avgRating-a.avgRating; if(b.uniqueResponses!==a.uniqueResponses) return b.uniqueResponses-a.uniqueResponses; return a.name.localeCompare(b.name); }); };
         
         const renderTop5 = (rankedTeachers) => {
@@ -1586,7 +1587,7 @@
             return monday;
         };
 
-        const generatePeriodicData = (data, eligibleTeachers, period) => {
+       const generatePeriodicData = (data, eligibleTeachers, period) => {
             const startDate = new Date(startDateEl.value);
             const endDate = new Date(endDateEl.value);
 
@@ -1629,14 +1630,21 @@
                 groupedData[review.teacherId][key].regNos.add(review.studentRegNo);
             }
 
+            // --- FIX IS HERE: 'reportData' is now correctly declared ---
             const reportData = [];
             for (const teacher of eligibleTeachers) {
+                // --- THESE ARE THE NEW FIELDS ---
+                const nature = isLectureBased(teacher.name) ? 'Lecture Based' : 'Full Time';
                 const row = {
+                    'Employee ID': teacher.employeeId || '',
                     'Teacher Name': teacher.name,
                     'Teacher ID': teacher.id,
                     'Center': teacher.branch,
+                    'Subjects': teacher.subjects || '',
+                    'Nature of Teacher': nature,
                     'Overall Avg Rating': (typeof teacher.avgRating === 'number') ? teacher.avgRating.toFixed(2) : 'N/A'
                 };
+                // --- END OF NEW FIELDS ---
                 
                 for (const periodKey of sortedPeriodKeys) {
                     const periodData = groupedData[teacher.id]?.[periodKey];
