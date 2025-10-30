@@ -791,6 +791,7 @@
 
         const API_URL = "https://raw.githubusercontent.com/rajnishpandey21/fac_rat_data/main/manifest.json"; 
         const MIN_RESPONSES_FOR_RANKING = 30;
+        const KOLKATA_BLACKLIST = new Set(['T062','T020','T070','T119','T127' ]);
         const TOP_N_BATCHES_TO_SHOW = 15;
         const MIN_REVIEWS_FOR_BATCH_CHART = 5; 
         const BATCH_RATING_WEIGHT = 0.7;
@@ -1162,7 +1163,24 @@
         const renderDashboard = () => {
             const filters = { startDate: new Date(startDateEl.value).getTime(), endDate: new Date(endDateEl.value).getTime() + 86399999, branch: branchFilterEl.value, expertise: expertiseFilterEl.value, teacher: teacherFilterEl.value, batch: batchFilterEl.value };
             recomputeDependentFilters(filters);
-            const filteredData = allData.filter(d => { const batchIdentifier = `${d.batchId} - ${d.course}`; const dExp = getNormalizedExpertise(d.expertise); const dBranch = getNormalizedBranch(d.teacherBranch); return (d.timestamp >= filters.startDate && d.timestamp <= filters.endDate) && (filters.branch === 'all' || dBranch === filters.branch) && (filters.expertise === 'all' || dExp === filters.expertise) && (filters.teacher === 'all' || d.teacherId === filters.teacher) && (filters.batch === 'all' || batchIdentifier === filters.batch) && (d.teacherStatus === 'Working'); });
+            const filteredData = allData.filter(d => { 
+                const batchIdentifier = `${d.batchId} - ${d.course}`; 
+                const dExp = getNormalizedExpertise(d.expertise); 
+                const dBranch = getNormalizedBranch(d.teacherBranch); 
+                
+                // --- NEW FIX: Check the blacklist if Kolkata is selected ---
+                if (filters.branch === 'Kolkata' && KOLKATA_BLACKLIST.has(d.teacherId)) {
+                    return false; // Exclude this teacher's data
+                }
+                // --- END OF FIX ---
+
+                return (d.timestamp >= filters.startDate && d.timestamp <= filters.endDate) && 
+                       (filters.branch === 'all' || dBranch === filters.branch) && 
+                       (filters.expertise === 'all' || dExp === filters.expertise) && 
+                       (filters.teacher === 'all' || d.teacherId === filters.teacher) && 
+                       (filters.batch === 'all' || batchIdentifier === filters.batch) && 
+                       (d.teacherStatus === 'Working'); 
+            });
             const teacherStats = calculateTeacherStats(filteredData);
             const rankedTeachers = rankTeachers(teacherStats);
             renderTop5(rankedTeachers);
