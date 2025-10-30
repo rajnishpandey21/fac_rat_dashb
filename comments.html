@@ -360,6 +360,7 @@
 <script>
         const API_URL = "https://raw.githubusercontent.com/rajnishpandey21/fac_rat_data/main/manifest.json";
         const MIN_RESPONSES_FOR_RANKING = 30;
+        const KOLKATA_BLACKLIST = new Set(['T062','T020','T070','T119','T127' ]);
 
         let allData = [];
         let allExpertiseOptions = [], allBatchOptions = [];
@@ -466,8 +467,16 @@
             const expertise = document.getElementById('expertiseFilter').value;
             const teacher = document.getElementById('teacherFilter').value;
             const batch = document.getElementById('batchFilter').value;
+
             return allData.filter(d => {
                 const batchId = `${d.batchId} - ${d.course}`;
+
+                // --- NEW FIX: Check the blacklist if Kolkata is selected ---
+                if (branch === 'Kolkata' && KOLKATA_BLACKLIST.has(d.teacherId)) {
+                    return false; // Exclude this teacher's data
+                }
+                // --- END OF FIX ---
+
                 return d.timestamp>=start && d.timestamp<=end &&
                        (branch==='all'||d.teacherBranch===branch) &&
                        (expertise==='all'||d.expertise===expertise) &&
