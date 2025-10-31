@@ -790,7 +790,7 @@
         if (!SESSION_ROLE) { window.location.href = 'index.html'; return; }
 
         const API_URL = "https://raw.githubusercontent.com/rajnishpandey21/fac_rat_data/main/manifest.json"; 
-        const MIN_RESPONSES_FOR_RANKING = 30;
+        const MIN_RESPONSES_FOR_RANKING = 10;
         const KOLKATA_BLACKLIST = new Set(['T062','T020','T070','T119','T127' ]);
         const TOP_N_BATCHES_TO_SHOW = 15;
         const MIN_REVIEWS_FOR_BATCH_CHART = 5; 
@@ -968,9 +968,19 @@
 
             resetFiltersBtn.addEventListener('click', resetFilters);
             exportReportBtn.addEventListener('click', exportComparisonReport);
-            refreshDashboardBtn.addEventListener('click', () => location.reload()); // New event listener
+            
+            // --- MODIFICATION: Updated Refresh button to clear localStorage ---
+            refreshDashboardBtn.addEventListener('click', () => {
+                console.log("Clearing data cache and refreshing...");
+                localStorage.removeItem(CACHE_KEY);
+                localStorage.removeItem(CACHE_TIMESTAMP_KEY);
+                location.reload(true); // 'true' forces a hard reload from server
+            });
+            // --- END OF MODIFICATION ---
+
             if (logoutBtn) logoutBtn.addEventListener('click', () => { sessionStorage.clear(); window.location.href = 'index.html'; });
         };
+
 
         const fetchData = async () => {
             if ("YOUR_GOOGLE_APPS_SCRIPT_URL_HERE" === API_URL) return void(loaderEl.textContent = "Error: Please update the API_URL in the script section.");
@@ -997,15 +1007,19 @@
             };
             
             try {
-                console.log("Fetching data manifest from GitHub...");
-                const manifestResponse = await fetch(API_URL);
+                // --- MODIFICATION: Added cacheBust parameter to all fetches ---
+                const cacheBust = `?v=${new Date().getTime()}`;
+                console.log("Fetching data manifest from GitHub (cache-busted)...");
+                
+                const manifestResponse = await fetch(API_URL + cacheBust);
                 if (!manifestResponse.ok) throw new Error(`HTTP error! status: ${manifestResponse.status}`);
                 const manifest = await manifestResponse.json();
 
                 const baseUrl = API_URL.substring(0, API_URL.lastIndexOf('/') + 1);
                 const reviewPromises = manifest.review_files.map(file => 
-                    fetch(baseUrl + file).then(res => res.json())
+                    fetch(baseUrl + file + cacheBust).then(res => res.json())
                 );
+                // --- END OF MODIFICATION ---
                 
                 const reviewChunks = await Promise.all(reviewPromises);
                 const combinedReviews = [].concat(...reviewChunks);
@@ -1023,7 +1037,6 @@
                 loaderEl.textContent = `Failed to load data. Error: ${a.message}`;
             }
         };
-
         
         const populateFilters = () => {
             const branches = [...new Set(allData.map(a => getNormalizedBranch(a.teacherBranch)))].sort();
@@ -1102,7 +1115,70 @@
 
         const median = (arr) => { if(arr.length===0) return 0; const a=[...arr].sort((x,y)=>x-y); const m=Math.floor(a.length/2); return a.length%2?a[m]:(a[m-1]+a[m])/2; };
         const unique = (arr) => Array.from(new Set(arr));
-        const updateKpis = (filteredData, filters) => { const startDate = new Date(startDateEl.value); const endDate = new Date(endDateEl.value); const selectedBranch = branchFilterEl.value; const selectedTeacher = teacherFilterEl.value; let admissionsScoped = admissionsData || []; if (selectedBranch !== 'all') { admissionsScoped = admissionsScoped.filter(a => (a.branchAliases || (a.branch ? [a.branch] : [])).includes(selectedBranch)); } else if (selectedTeacher !== 'all') { const teacherRows = filteredData.filter(r => r.teacherId === selectedTeacher); const teacherBranch = teacherRows.length ? teacherRows[0].teacherBranch : ''; if (teacherBranch) admissionsScoped = admissionsScoped.filter(a => (a.branchAliases || (a.branch ? [a.branch] : [])).includes(teacherBranch)); } admissionsScoped = admissionsScoped.filter(a => a.admissionDate >= startDate.getTime() && a.admissionDate <= endDate.getTime()+86399999); const uniqueEnrolled = unique(admissionsScoped.map(a => a.regNo)).length; kpiEnrolledEl.textContent = uniqueEnrolled.toLocaleString(); const uniqueResponded = unique(filteredData.map(d => d.studentRegNo)).length; kpiRespondedEl.textContent = uniqueResponded.toLocaleString(); const workingTeachers = unique(filteredData.filter(d => d.teacherStatus === 'Working').map(d => d.teacherId)); kpiTotalTeachersEl.textContent = workingTeachers.length.toLocaleString(); const stats = calculateTeacherStats(filteredData); const eligibleCount = stats.filter(t => t.uniqueResponses >= MIN_RESPONSES_FOR_RANKING).length; kpiEligibleTeachersEl.textContent = eligibleCount.toLocaleString(); const ratings = filteredData.map(d => d.avgRating).filter(v => typeof v === 'number'); const excellentPct = ratings.length ? (ratings.filter(v => v >= 4.5).length / ratings.length) * 100 : 0; const okayPct = ratings.length ? (ratings.filter(v => v < 4.5 && v >= 4.0).length / ratings.length) * 100 : 0; const atriskPct = ratings.length ? (ratings.filter(v => v < 4.0).length / ratings.length) * 100 : 0; kpiQualityMixEl.textContent = `Excellent ${excellentPct.toFixed(0)}% · Okay ${okayPct.toFixed(0)}% · At-Risk ${atriskPct.toFixed(0)}%`; kpiQualitySubEl.textContent = '≥4.5 · 4.0–<4.5 · <4.0'; const pci = calculateConsistencyIndex(filteredData); kpiConsistencyEl.textContent = pci ? pci.toFixed(2) : '0.00'; const firstReviewTsByReg = {}; filteredData.forEach(r => { if(!firstReviewTsByReg[r.studentRegNo] || r.timestamp < firstReviewTsByReg[r.studentRegNo]) firstReviewTsByReg[r.studentRegNo] = r.timestamp; }); const admissionByReg = {}; admissionsScoped.forEach(a => { if(!admissionByReg[a.regNo] || a.admissionDate < admissionByReg[a.regNo]) admissionByReg[a.regNo] = a.admissionDate; }); const deltas = Object.keys(firstReviewTsByReg).map(reg => { const a = admissionByReg[reg]; if(!a) return null; return (firstReviewTsByReg[reg] - a) / 86400000; }).filter(v => v!==null && v>=0); const mtf = median(deltas); kpiTimeToFeedbackEl.textContent = isFinite(mtf) ? `${mtf.toFixed(1)} days` : '-'; const firsts = deltas.length; const firstTimeRate = uniqueResponded ? (firsts / uniqueResponded) * 100 : 0; kpiFirstTimeRateEl.textContent = `${firstTimeRate.toFixed(0)}%`; };
+        const updateKpis = (workingData, allStatusData, filters) => {
+            const startDate = new Date(startDateEl.value);
+            const endDate = new Date(endDateEl.value);
+            const selectedBranch = branchFilterEl.value;
+            const selectedTeacher = teacherFilterEl.value;
+            let admissionsScoped = admissionsData || [];
+            if (selectedBranch !== 'all') {
+                admissionsScoped = admissionsScoped.filter(a => (a.branchAliases || (a.branch ? [a.branch] : [])).includes(selectedBranch));
+            } else if (selectedTeacher !== 'all') {
+                const teacherRows = workingData.filter(r => r.teacherId === selectedTeacher);
+                const teacherBranch = teacherRows.length ? teacherRows[0].teacherBranch : '';
+                if (teacherBranch) admissionsScoped = admissionsScoped.filter(a => (a.branchAliases || (a.branch ? [a.branch] : [])).includes(teacherBranch));
+            }
+            admissionsScoped = admissionsScoped.filter(a => a.admissionDate >= startDate.getTime() && a.admissionDate <= endDate.getTime() + 86399999);
+            
+            const uniqueEnrolled = unique(admissionsScoped.map(a => a.regNo)).length;
+            kpiEnrolledEl.textContent = uniqueEnrolled.toLocaleString();
+
+            // --- MODIFICATION: Use the 'allStatusData' dataset for this KPI ---
+            const uniqueResponded = unique(allStatusData.map(d => d.studentRegNo)).length;
+            kpiRespondedEl.textContent = uniqueResponded.toLocaleString();
+            
+            // All other KPIs below use 'workingData'
+            const workingTeachers = unique(workingData.map(d => d.teacherId));
+            kpiTotalTeachersEl.textContent = workingTeachers.length.toLocaleString();
+            
+            const stats = calculateTeacherStats(workingData);
+            const eligibleCount = stats.filter(t => t.uniqueResponses >= MIN_RESPONSES_FOR_RANKING).length;
+            kpiEligibleTeachersEl.textContent = eligibleCount.toLocaleString();
+            
+            const ratings = workingData.map(d => d.avgRating).filter(v => typeof v === 'number');
+            const excellentPct = ratings.length ? (ratings.filter(v => v >= 4.5).length / ratings.length) * 100 : 0;
+            const okayPct = ratings.length ? (ratings.filter(v => v < 4.5 && v >= 4.0).length / ratings.length) * 100 : 0;
+            const atriskPct = ratings.length ? (ratings.filter(v => v < 4.0).length / ratings.length) * 100 : 0;
+            kpiQualityMixEl.textContent = `Excellent ${excellentPct.toFixed(0)}% · Okay ${okayPct.toFixed(0)}% · At-Risk ${atriskPct.toFixed(0)}%`;
+            kpiQualitySubEl.textContent = '≥4.5 · 4.0–<4.5 · <4.0';
+            
+            const pci = calculateConsistencyIndex(workingData);
+            kpiConsistencyEl.textContent = pci ? pci.toFixed(2) : '0.00';
+            
+            // --- MODIFICATION: Populate first review timestamps from 'allStatusData' ---
+            const firstReviewTsByReg = {};
+            allStatusData.forEach(r => {
+                if (!firstReviewTsByReg[r.studentRegNo] || r.timestamp < firstReviewTsByReg[r.studentRegNo]) firstReviewTsByReg[r.studentRegNo] = r.timestamp;
+            });
+            const admissionByReg = {};
+            admissionsScoped.forEach(a => {
+                if (!admissionByReg[a.regNo] || a.admissionDate < admissionByReg[a.regNo]) admissionByReg[a.regNo] = a.admissionDate;
+            });
+            const deltas = Object.keys(firstReviewTsByReg).map(reg => {
+                const a = admissionByReg[reg];
+                if (!a) return null;
+                return (firstReviewTsByReg[reg] - a) / 86400000;
+            }).filter(v => v !== null && v >= 0);
+            
+            const mtf = median(deltas);
+            kpiTimeToFeedbackEl.textContent = isFinite(mtf) ? `${mtf.toFixed(1)} days` : '-';
+            
+            // Now 'firsts' and 'uniqueResponded' are calculated from the same base data
+            const firsts = deltas.length;
+            const firstTimeRate = uniqueResponded ? (firsts / uniqueResponded) * 100 : 0; 
+            kpiFirstTimeRateEl.textContent = `${firstTimeRate.toFixed(0)}%`;
+        };
+        
         const calculateTeacherStats = (data) => { const statsMap=new Map;data.forEach(a=>{statsMap.has(a.teacherId)||statsMap.set(a.teacherId,{id:a.teacherId,name:a.teacherName,branch:getNormalizedBranch(a.teacherBranch),employeeId:a.employeeId,ratings:[],regNos:new Set,subjects:new Set,paramSums:{subjectKnowledge:0,approachability:0,lectureDelivery:0,studentEngagement:0}});const b=statsMap.get(a.teacherId);b.ratings.push(a.avgRating),b.regNos.add(a.studentRegNo);const normExp=getNormalizedExpertise(a.expertise);if(normExp) b.subjects.add(normExp);b.paramSums.subjectKnowledge+=a.ratings.subjectKnowledge,b.paramSums.approachability+=a.ratings.approachability,b.paramSums.lectureDelivery+=a.ratings.lectureDelivery,b.paramSums.studentEngagement+=a.ratings.studentEngagement});const finalStats=[];return statsMap.forEach(a=>{const b=a.ratings.length;if(b>0){const subjects=[...a.subjects].sort().join(', ');finalStats.push({...a,subjects,uniqueResponses:a.regNos.size,avgRating:a.ratings.reduce((a,b)=>a+b,0)/b,avgParams:{subjectKnowledge:a.paramSums.subjectKnowledge/b,approachability:a.paramSums.approachability/b,lectureDelivery:a.paramSums.lectureDelivery/b,studentEngagement:a.paramSums.studentEngagement/b}})}}),finalStats};
         const rankTeachers = (stats) => { const eligible=stats.filter(a=>a.uniqueResponses>=MIN_RESPONSES_FOR_RANKING); if(0===eligible.length) return []; return eligible.sort((a,b)=>{ if(b.avgRating!==a.avgRating) return b.avgRating-a.avgRating; if(b.uniqueResponses!==a.uniqueResponses) return b.uniqueResponses-a.uniqueResponses; return a.name.localeCompare(b.name); }); };
         
@@ -1164,24 +1240,30 @@
         const renderDashboard = () => {
             const filters = { startDate: new Date(startDateEl.value).getTime(), endDate: new Date(endDateEl.value).getTime() + 86399999, branch: branchFilterEl.value, expertise: expertiseFilterEl.value, teacher: teacherFilterEl.value, batch: batchFilterEl.value };
             recomputeDependentFilters(filters);
-            const filteredData = allData.filter(d => { 
+
+            // --- MODIFICATION START ---
+            // Create a base filter function
+            const baseFilter = (d) => {
                 const batchIdentifier = `${d.batchId} - ${d.course}`; 
                 const dExp = getNormalizedExpertise(d.expertise); 
                 const dBranch = getNormalizedBranch(d.teacherBranch); 
                 
-                // --- NEW FIX: Check the blacklist if Kolkata is selected ---
                 if (filters.branch === 'Kolkata' && KOLKATA_BLACKLIST.has(d.teacherId)) {
-                    return false; // Exclude this teacher's data
+                    return false;
                 }
-                // --- END OF FIX ---
 
                 return (d.timestamp >= filters.startDate && d.timestamp <= filters.endDate) && 
                        (filters.branch === 'all' || dBranch === filters.branch) && 
                        (filters.expertise === 'all' || dExp === filters.expertise) && 
                        (filters.teacher === 'all' || d.teacherId === filters.teacher) && 
-                       (filters.batch === 'all' || batchIdentifier === filters.batch) && 
-                       (d.teacherStatus === 'Working'); 
-            });
+                       (filters.batch === 'all' || batchIdentifier === filters.batch);
+            };
+
+            // Create two datasets: one for all status, one for working only
+            const filteredDataAllStatus = allData.filter(baseFilter);
+            const filteredData = filteredDataAllStatus.filter(d => d.teacherStatus === 'Working');
+            // --- MODIFICATION END ---
+            
             const teacherStats = calculateTeacherStats(filteredData);
             const rankedTeachers = rankTeachers(teacherStats);
             renderTop5(rankedTeachers);
@@ -1192,8 +1274,11 @@
             renderBatchChart(filteredData);
             renderVolumeChart(filteredData, admissionsData);
             renderHeatmapChart(filteredData);
-            updateKpis(filteredData, filters);
+            
+            // Pass BOTH datasets to the KPI function
+            updateKpis(filteredData, filteredDataAllStatus, filters);
         };
+        
         function getCurrentHeatmapData() {
             const data = allData;
             const start = new Date(startDateEl.value).getTime();
@@ -1246,7 +1331,6 @@
 
         function createHeatmapChart(canvasId, data, large=false) {
             const ctx = document.getElementById(canvasId).getContext('2d');
-            // Fail-safe: ensure dataset is an array of objects with x,y,v numeric values
             const safeMatrix = Array.isArray(data?.matrix) ? data.matrix.filter(d => d && typeof d.x === 'number' && typeof d.y === 'number' && typeof d.v === 'number') : [];
             const centers = Array.isArray(data?.centers) ? data.centers : [];
             const params = Array.isArray(data?.params) ? data.params : [];
