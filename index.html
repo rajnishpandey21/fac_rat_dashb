@@ -127,52 +127,66 @@
                 return cached ? JSON.parse(cached) : null;
             }
 
-            async function loadCenters() {
-                centerSelect.innerHTML = '<option value="">Loading centers...</option>';
-                centerSelect.disabled = true;
+        async function loadCenters() {
+            centerSelect.innerHTML = '<option value="">Loading centers...</option>';
+            centerSelect.disabled = true;
 
-                let payload = getCachedData();
-                if (!payload) {
-                    try {
-                        const manifestResponse = await fetch(API_URL);
-                        if (!manifestResponse.ok) throw new Error(`HTTP ${manifestResponse.status}`);
-                        const manifest = await manifestResponse.json();
-                        const baseUrl = API_URL.substring(0, API_URL.lastIndexOf('/') + 1);
-                        const reviewPromises = manifest.review_files.map(file => fetch(baseUrl + file).then(res => res.json()));
-                        const reviewChunks = await Promise.all(reviewPromises);
-                        const combinedReviews = [].concat(...reviewChunks);
-                        payload = { reviews: combinedReviews, admissions: manifest.admissions || [] };
-                        // persist for dashboard to reuse
-                        try {
-                            localStorage.setItem(CACHE_KEY, JSON.stringify(payload));
-                            localStorage.setItem(CACHE_TIMESTAMP_KEY, String(Date.now()));
-                        } catch (_) {}
-                    } catch (err) {
-                        centerSelect.innerHTML = '<option value="">Failed to load centers. Refresh page.</option>';
-                        return;
-                    }
-                }
+            // This helper function needs to be defined *before* it's used
+            const getNormalizedBranch = (raw) => {
+                const val = String(raw || '').trim();
+                if (!val) return '';
+                const lower = val.toLowerCase();
+                if (lower === 'prayagraj lkt') return 'Prayagraj';
+                return val;
+            };
 
-                const getNormalizedBranch = (raw) => {
-                    const val = String(raw || '').trim();
-                    if (!val) return '';
-                    const lower = val.toLowerCase();
-                    if (lower === 'prayagraj lkt') return 'Prayagraj';
-                    return val;
-                };
+            // We don't need the 'let payload = null' or 'if(!payload)'
+            // We just fetch the data directly.
+            try {
+                const manifestResponse = await fetch(API_URL);
+                if (!manifestResponse.ok) throw new Error(`HTTP ${manifestResponse.status}`);
+                const manifest = await manifestResponse.json();
+                
+                const baseUrl = API_URL.substring(0, API_URL.lastIndexOf('/') + 1);
+                const reviewPromises = manifest.review_files.map(file => fetch(baseUrl + file).then(res => res.json()));
+                const reviewChunks = await Promise.all(reviewPromises);
+                const combinedReviews = [].concat(...reviewChunks);
+                
+                const payload = { reviews: combinedReviews, admissions: manifest.admissions || [] };
+                
+                // persist for dashboard to reuse
+                try {
+                    localStorage.setItem(CACHE_KEY, JSON.stringify(payload));
+                    localStorage.setItem(CACHE_TIMESTAMP_KEY, String(Date.now()));
+                } catch (_) {}
 
+                // --- MOVED LOGIC HERE ---
+                // Now we build the branches list *after* payload is guaranteed to exist
                 const branches = [...new Set(payload.reviews.map(r => getNormalizedBranch(r.teacherBranch)))].sort();
-                centerSelect.innerHTML = '';
+                
+                centerSelect.innerHTML = ''; // Clear "Loading..."
                 centerSelect.disabled = false;
-                branches.forEach(label => {
-                    const opt = document.createElement('option');
-                    opt.value = label; // keep label as value to match dashboard exactly
-                    opt.textContent = label;
-                    centerSelect.appendChild(opt);
-                });
-            }
+                
+                if (branches.length === 0) {
+                     centerSelect.innerHTML = '<option value="">No centers found in data.</option>';
+                } else {
+                    branches.forEach(label => {
+                        const opt = document.createElement('option');
+                        opt.value = label; // keep label as value to match dashboard exactly
+                        opt.textContent = label;
+                        centerSelect.appendChild(opt);
+                    });
+                }
+                // --- END OF MOVED LOGIC ---
 
-            loadCenters();
+            } catch (err) {
+                console.error("Failed to load centers:", err);
+                centerSelect.innerHTML = '<option value="">Failed to load centers. Refresh page.</option>';
+                // No return needed here, catch block is the end of the line
+            }
+        }
+
+        loadCenters();
 
             adminForm.addEventListener('submit', (e) => {
                 e.preventDefault();
