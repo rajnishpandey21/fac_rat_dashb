@@ -380,7 +380,7 @@
 
         function resetFilters() {
             const today = new Date();
-            const defaultStartDate = new Date('2025-02-01');
+            const defaultStartDate = new Date('2025-02-01T00:00:00');
             document.getElementById('endDate').value = today.toISOString().split('T')[0];
             document.getElementById('startDate').value = defaultStartDate.toISOString().split('T')[0];
             document.getElementById('branchFilter').value = 'all';
@@ -402,7 +402,7 @@
             const batchFilterEl = document.getElementById('batchFilter');
 
             const today = new Date();
-            const defaultStartDate = new Date('2025-02-01');
+            const defaultStartDate = new Date('2025-02-01T00:00:00');
             endDateEl.value = today.toISOString().split('T')[0];
             startDateEl.value = defaultStartDate.toISOString().split('T')[0];
             scheduleRender = debounce(renderDashboard, 200);
@@ -461,8 +461,8 @@
         });
 
         function getFiltered() {
-            const start = new Date(document.getElementById('startDate').value).getTime();
-            const end = new Date(document.getElementById('endDate').value).getTime() + 86399999;
+            const start = new Date(document.getElementById('startDate').value + 'T00:00:00').getTime();
+            const end = new Date(document.getElementById('endDate').value + 'T23:59:59').getTime();
             const branch = document.getElementById('branchFilter').value;
             const expertise = document.getElementById('expertiseFilter').value;
             const teacher = document.getElementById('teacherFilter').value;
@@ -487,8 +487,8 @@
 
         function renderDashboard(){
             const filters = {
-                startDate: new Date(document.getElementById('startDate').value).getTime(),
-                endDate: new Date(document.getElementById('endDate').value).getTime() + 86399999,
+                startDate: new Date(document.getElementById('startDate').value + 'T00:00:00').getTime(),
+                endDate: new Date(document.getElementById('endDate').value + 'T23:59:59').getTime(),
                 branch: document.getElementById('branchFilter').value
             };
 
@@ -658,7 +658,11 @@
         function buildCommentItems(data){
             const items = [];
             data.forEach(d=>{
-                const date = new Date(d.timestamp).toISOString().split('T')[0];
+                const d_ts = new Date(d.timestamp);
+                const year = d_ts.getFullYear();
+                const month = String(d_ts.getMonth() + 1).padStart(2, '0');
+                const day = String(d_ts.getDate()).padStart(2, '0');
+                const date = `${year}-${month}-${day}`;
                 if(textLen(d.comments)) items.push({ date, who: `${d.teacherName} • ${d.teacherBranch} • ${d.batchId} - ${d.course}`, type: 'Comment', text: d.comments, teacher: d.teacherName, center: d.teacherBranch, batch: `${d.batchId} - ${d.course}`, studentRegNo: d.studentRegNo });
                 if(textLen(d.suggestions)) items.push({ date, who: `${d.teacherName} • ${d.teacherBranch} • ${d.batchId} - ${d.course}`, type: 'Suggestion', text: d.suggestions, teacher: d.teacherName, center: d.teacherBranch, batch: `${d.batchId} - ${d.course}`, studentRegNo: d.studentRegNo });
             });
