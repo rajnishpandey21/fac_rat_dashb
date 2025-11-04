@@ -321,7 +321,7 @@
             const endDateEl = document.getElementById('endDate');
 
             if (startDateFromUrl) startDateEl.value = startDateFromUrl;
-            else { const d = new Date('2025-02-01'); startDateEl.value = d.toISOString().split('T')[0]; }
+            else { const d = new Date('2025-02-01T00:00:00'); startDateEl.value = d.toISOString().split('T')[0]; }
 
             if (endDateFromUrl) endDateEl.value = endDateFromUrl;
             else { const t = new Date(); endDateEl.value = t.toISOString().split('T')[0]; }
@@ -374,8 +374,8 @@
         function performSearch() {
             showLoader('Searching...');
             const regNo = document.getElementById('regNoInput').value.trim();
-            const start = new Date(document.getElementById('startDate').value).getTime();
-            const end = new Date(document.getElementById('endDate').value).getTime() + 86399999;
+            const start = new Date(document.getElementById('startDate').value + 'T00:00:00').getTime();
+            const end = new Date(document.getElementById('endDate').value + 'T23:59:59').getTime();
             const teacherId = document.getElementById('teacherFilter').value;
             const resultsContainer = document.getElementById('resultsContainer');
             const analyticsSection = document.getElementById('analyticsSection');
@@ -407,7 +407,11 @@
                 renderCharts(filteredFeedback);
 
                 resultsContainer.innerHTML = `<h2>Feedback Log (${filteredFeedback.length})</h2>` + filteredFeedback.map(item => {
-                    const dateStr = new Date(item.timestamp).toISOString().split('T')[0];
+                    const d = new Date(item.timestamp);
+                    const year = d.getFullYear();
+                    const month = String(d.getMonth() + 1).padStart(2, '0');
+                    const day = String(d.getDate()).padStart(2, '0');
+                    const dateStr = `${year}-${month}-${day}`;
                     const commentHTML = (item.comments || '').trim() ? `<div class="feedback-text"><span class="tag">Comment</span>${item.comments}</div>` : '';
                     const suggestionHTML = (item.suggestions || '').trim() ? `<div class="feedback-text"><span class="tag">Suggestion</span>${item.suggestions}</div>` : '';
                     
