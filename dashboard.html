@@ -1116,8 +1116,8 @@
         const median = (arr) => { if(arr.length===0) return 0; const a=[...arr].sort((x,y)=>x-y); const m=Math.floor(a.length/2); return a.length%2?a[m]:(a[m-1]+a[m])/2; };
         const unique = (arr) => Array.from(new Set(arr));
         const updateKpis = (workingData, allStatusData, filters) => {
-            const startDate = new Date(startDateEl.value);
-            const endDate = new Date(endDateEl.value);
+            const startDate = new Date(startDateEl.value + 'T00:00:00');
+            const endDate = new Date(endDateEl.value + 'T23:59:59');
             const selectedBranch = branchFilterEl.value;
             const selectedTeacher = teacherFilterEl.value;
             let admissionsScoped = admissionsData || [];
@@ -1128,7 +1128,7 @@
                 const teacherBranch = teacherRows.length ? teacherRows[0].teacherBranch : '';
                 if (teacherBranch) admissionsScoped = admissionsScoped.filter(a => (a.branchAliases || (a.branch ? [a.branch] : [])).includes(teacherBranch));
             }
-            admissionsScoped = admissionsScoped.filter(a => a.admissionDate >= startDate.getTime() && a.admissionDate <= endDate.getTime() + 86399999);
+            admissionsScoped = admissionsScoped.filter(a => a.admissionDate >= startDate.getTime() && a.admissionDate <= endDate.getTime());
             
             const uniqueEnrolled = unique(admissionsScoped.map(a => a.regNo)).length;
             kpiEnrolledEl.textContent = uniqueEnrolled.toLocaleString();
@@ -1238,7 +1238,7 @@
         };
         
         const renderDashboard = () => {
-            const filters = { startDate: new Date(startDateEl.value).getTime(), endDate: new Date(endDateEl.value).getTime() + 86399999, branch: branchFilterEl.value, expertise: expertiseFilterEl.value, teacher: teacherFilterEl.value, batch: batchFilterEl.value };
+            const filters = { startDate: new Date(startDateEl.value + 'T00:00:00').getTime(), endDate: new Date(endDateEl.value + 'T23:59:59').getTime(), branch: branchFilterEl.value, expertise: expertiseFilterEl.value, teacher: teacherFilterEl.value, batch: batchFilterEl.value };
             recomputeDependentFilters(filters);
 
             // --- MODIFICATION START ---
@@ -1281,8 +1281,8 @@
         
         function getCurrentHeatmapData() {
             const data = allData;
-            const start = new Date(startDateEl.value).getTime();
-            const end = new Date(endDateEl.value).getTime() + 86399999;
+            const start = new Date(startDateEl.value + 'T00:00:00').getTime();
+            const end = new Date(endDateEl.value + 'T23:59:59').getTime();
             const selectedBranch = branchFilterEl.value;
             const filtered = data.filter(d => d.timestamp >= start && d.timestamp <= end && d.teacherStatus === 'Working' && (selectedBranch==='all' || getNormalizedBranch(d.teacherBranch)===selectedBranch));
             const params = ['subjectKnowledge','approachability','lectureDelivery','studentEngagement'];
@@ -1488,7 +1488,7 @@
         const renderTrendChart = (data, metric, canvasId, label) => {
             const chartVarName = `trendChartInstance`;
             if (window[chartVarName]) window[chartVarName].destroy();
-            const { startDate, endDate } = { startDate: new Date(startDateEl.value), endDate: new Date(endDateEl.value) };
+            const { startDate, endDate } = { startDate: new Date(startDateEl.value + 'T00:00:00'), endDate: new Date(endDateEl.value + 'T23:59:59') };
             const range = (endDate - startDate) / 86400000;
             let unit = range <= 31 ? 'day' : (range <= 90 ? 'week' : 'month');
             const trendData = data.reduce((acc, item) => { const d = new Date(item.timestamp); let key; if (unit === 'day') key = d.toISOString().split('T')[0]; else if (unit === 'week') { const day = d.getDay(); const diff = d.getDate() - day + (day === 0 ? -6 : 1); key = new Date(d.setDate(diff)).toISOString().split('T')[0]; } else key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; if (!acc[key]) acc[key] = []; acc[key].push(item); return acc; }, {});
@@ -1672,8 +1672,8 @@
         };
 
        const generatePeriodicData = (data, eligibleTeachers, period) => {
-            const startDate = new Date(startDateEl.value);
-            const endDate = new Date(endDateEl.value);
+            const startDate = new Date(startDateEl.value + 'T00:00:00');
+            const endDate = new Date(endDateEl.value + 'T23:59:59');
 
             const periodKeys = new Set();
             let current = (period === 'month') ? new Date(startDate.getFullYear(), startDate.getMonth(), 1) : getMonday(startDate);
@@ -1758,7 +1758,7 @@
             exportReportBtn.disabled = true;
 
             try {
-                const filters = { startDate: new Date(startDateEl.value).getTime(), endDate: new Date(endDateEl.value).getTime() + 86399999, branch: branchFilterEl.value, expertise: expertiseFilterEl.value, teacher: teacherFilterEl.value, batch: batchFilterEl.value };
+                const filters = { startDate: new Date(startDateEl.value + 'T00:00:00').getTime(), endDate: new Date(endDateEl.value + 'T23:59:59').getTime(), branch: branchFilterEl.value, expertise: expertiseFilterEl.value, teacher: teacherFilterEl.value, batch: batchFilterEl.value };
                 const filteredData = allData.filter(d => { const batchIdentifier = `${d.batchId} - ${d.course}`; return (d.timestamp >= filters.startDate && d.timestamp <= filters.endDate) && (filters.branch === 'all' || d.teacherBranch === filters.branch) && (filters.expertise === 'all' || d.expertise === filters.expertise) && (filters.teacher === 'all' || d.teacherId === filters.teacher) && (filters.batch === 'all' || batchIdentifier === filters.batch) && (d.teacherStatus === 'Working'); });
                 
                 const teacherStats = calculateTeacherStats(filteredData);
