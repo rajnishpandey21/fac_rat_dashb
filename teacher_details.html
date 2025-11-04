@@ -214,8 +214,8 @@
                 const allData = [].concat(...reviewChunks);
                 
                 // Original logic continues from here
-                const startTs = new Date(startDate).getTime();
-                const endTs = new Date(endDate).getTime() + 86399999;
+                const startTs = new Date(startDate + 'T00:00:00').getTime();
+                const endTs = new Date(endDate + 'T23:59:59').getTime();
                 const teacherData = allData.filter(d => d.teacherId === teacherId && d.timestamp >= startTs && d.timestamp <= endTs);
                 
                 // Get the teacher's center to show all center feedback
@@ -240,7 +240,7 @@
             const teacherName = tData[0].teacherName;
             
             document.getElementById('teacherModalTitle').textContent = `Details for ${teacherName}`;
-            document.getElementById('teacherModalPhoto').src = `IMAGES/${teacherId}.png`;
+            document.getElementById('teacherModalPhoto').src = `images/${teacherId}.png`;
             document.getElementById('teacherModalName').textContent = teacherName;
             const centers = [...new Set(tData.map(d => d.teacherBranch))].sort().join(', ');
             document.getElementById('teacherModalBranch').textContent = `Center(s): ${centers}`;
@@ -303,7 +303,11 @@
 
                 const itemsToRender = allFeedbackItems.slice(0, displayedFeedbackCount);
                 feedbackListEl.innerHTML = itemsToRender.map(item => {
-                    const dateStr = item.date.toISOString().split('T')[0];
+                    const d = new Date(item.date);
+                    const year = d.getFullYear();
+                    const month = String(d.getMonth() + 1).padStart(2, '0');
+                    const day = String(d.getDate()).padStart(2, '0');
+                    const dateStr = `${year}-${month}-${day}`;
                     const studentLink = item.studentRegNo ? `<a href="student_lookup.html?regNo=${item.studentRegNo}&startDate=${startDate}&endDate=${endDate}" target="_blank" style="color:#6c95c2; text-decoration:underline;">${item.studentRegNo}</a>` : 'Anonymous';
                     const teacherInfo = item.teacherName ? ` | Teacher: ${item.teacherName}` : '';
                     const commentHTML = item.comment ? `<div class="feedback-content"><span class="tag">Comment</span>${item.comment}</div>` : '';
@@ -364,7 +368,11 @@
             allFeedbackItems.forEach(item => {
                 const student = item.studentRegNo || 'Anonymous';
                 const teacher = item.teacherName || '';
-                const date = item.date.toISOString().split('T')[0];
+                const d = new Date(item.date);
+                const year = d.getFullYear();
+                const month = String(d.getMonth() + 1).padStart(2, '0');
+                const day = String(d.getDate()).padStart(2, '0');
+                const date = `${year}-${month}-${day}`;
                 const clean = (text) => `"${text.replace(/"/g, '""')}"`;
 
                 if (item.comment) { csvContent += `${date},${student},${teacher},"Comment",${clean(item.comment)}\r\n`; }
@@ -387,4 +395,3 @@
     </script>
 </body>
 </html>
-
