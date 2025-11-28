@@ -790,7 +790,7 @@
         if (!SESSION_ROLE) { window.location.href = 'index.html'; return; }
 
         const API_URL = "https://raw.githubusercontent.com/rajnishpandey21/fac_rat_data/main/manifest.json"; 
-        const MIN_RESPONSES_FOR_RANKING = 10;
+        const MIN_RESPONSES_FOR_RANKING = 1;
         const KOLKATA_BLACKLIST = new Set(['T062','T020','T070','T119','T127' ]);
         const TOP_N_BATCHES_TO_SHOW = 15;
         const MIN_REVIEWS_FOR_BATCH_CHART = 5; 
@@ -892,8 +892,23 @@
             'Anik Misra',
             'Samriddhi Bagchi',
             'Vipin Shukla',
-            'Sandeep Kumar Pandey'
-        ].map(n => String(n).trim().toLowerCase()));
+            'Sandeep Kumar Pandey',
+            'Arun Sharma',
+            'Hitesh Bangre',
+            'Mrutyunjaya Parida',
+            'Durgaprashad Malvia',
+            'Dharmendra Bhardwaj',
+            'Dharm Singh',
+            'Subhankar Dey',
+            'Sutapa Dutta',
+            'Sunil Sarkar',
+            'Gaurav Prakhar',
+            'Pramod Kumar Maurya',
+            'Devendra Kumar Vishwakarma'
+
+        ]
+        
+        .map(n => String(n).trim().toLowerCase()));
 
         function isLectureBased(name) {
             return lectureBasedSet.has(String(name || '').trim().toLowerCase());
