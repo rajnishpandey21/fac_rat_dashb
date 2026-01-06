@@ -79,7 +79,7 @@
         #teacherFeedbackList, #batchListContainer {
             flex-grow: 1;
             overflow-y: auto;
-            height: 500px; /* ** NEW: Fixed height for scrollable areas ** */
+            height: 500px;
         }
         .feedback-item { background: #f9f9f9; border: 1px solid #eee; border-radius: 8px; padding: 12px; margin-bottom: 10px; font-size: 0.9em; }
         .feedback-item .tag { font-size: 0.75rem; color: #fff; background-color: #667eea; border-radius: 4px; padding: 2px 6px; margin-right: 8px; font-weight: 500; }
@@ -142,7 +142,7 @@
                         <div class="chart-container card"><h2 style="margin-top:0;">Monthly Rating Trend</h2><canvas id="teacherTrend"></canvas></div>
                     </div>
                     <div class="card feedback-box" style="margin-top:24px;">
-                        <h2 style="margin-top:0;">Feedback</h2>
+                        <h2 style="margin-top:0;">Center Feedback (Deduplicated)</h2>
                         <div id="teacherFeedbackList"></div>
                         <div id="feedback-footer">
                             <button id="exportFeedbackCsvBtn" class="btn-3d btn-primary">Export All to CSV</button>
@@ -213,7 +213,6 @@
                 // Combine the chunks into a single array
                 const allData = [].concat(...reviewChunks);
                 
-                // Original logic continues from here
                 const startTs = new Date(startDate + 'T00:00:00').getTime();
                 const endTs = new Date(endDate + 'T23:59:59').getTime();
                 const teacherData = allData.filter(d => d.teacherId === teacherId && d.timestamp >= startTs && d.timestamp <= endTs);
@@ -249,13 +248,14 @@
             const overallAvg = (tData.reduce((sum, r) => sum + r.avgRating, 0) / tData.length) || 0;
             document.getElementById('teacherModalRating').textContent = `Overall Rating: ${overallAvg.toFixed(2)}`;
 
-            // Subjects from expertise/course dimension
-                const subjects = [...new Set(tData.map(d => getNormalizedExpertise(d.expertise) || d.course))].filter(Boolean).sort().join(', ');
+            // Subjects
+            const subjects = [...new Set(tData.map(d => getNormalizedExpertise(d.expertise) || d.course))].filter(Boolean).sort().join(', ');
             if (subjects) {
                 document.getElementById('teacherModalSubjects').textContent = `Subjects: ${subjects}`;
             }
             document.getElementById('modalViewCommentsBtn').onclick = () => window.open(`comments.html?${new URLSearchParams(window.location.search).toString()}`, '_blank');
             
+            // Batch Performance
             const batches = [...new Set(tData.map(d => `${d.batchId} - ${d.course}`))];
             batchPerformanceData = batches.map(batchName => {
                 const batchReviews = tData.filter(d => `${d.batchId} - ${d.course}` === batchName);
@@ -287,8 +287,38 @@
             const series=labels.map(k=>avg(buckets[k]));
             new Chart(document.getElementById('teacherTrend').getContext('2d'),{type:'line',data:{labels,datasets:[{label:'Avg. Rating (Monthly)',data:series,borderColor:'rgba(232,73,29,1)',fill:false,tension:0.1}]},options:{scales:{y:{min:3.5,suggestedMax:5}},plugins:{legend:{display:false}},maintainAspectRatio:false, layout: { padding: { left: 5, right: 10, bottom: 20 }}}});
 
-            // --- ** SIMPLIFIED Feedback Section Logic - Now using center data instead of teacher data ** ---
-            allFeedbackItems = centerData.map(d => ({date:new Date(d.timestamp), comment:(d.comments||'').toString().trim(), suggestion:(d.suggestions||'').toString().trim(), studentRegNo:d.studentRegNo, teacherName:d.teacherName})).filter(x=>x.comment||x.suggestion).sort((a,b)=>b.date-a.date);
+            // --- CORRECTED FEEDBACK SECTION WITH DEDUPLICATION ---
+            // We use a Set to ensure we only show a student's comment ONCE per submission,
+            // even if they rated multiple teachers in this center.
+            const processedSubmissions = new Set();
+            allFeedbackItems = [];
+
+            // Sort data by date first so the list is chronological
+            centerData.sort((a, b) => b.timestamp - a.timestamp);
+
+            centerData.forEach(d => {
+                // Check if we have already processed this specific submission
+                if (processedSubmissions.has(d.submissionId)) return;
+
+                const comment = (d.comments || '').toString().trim();
+                const suggestion = (d.suggestions || '').toString().trim();
+
+                // Only add to list if there is actually text to show
+                if (comment || suggestion) {
+                    allFeedbackItems.push({
+                        date: new Date(d.timestamp),
+                        comment: comment,
+                        suggestion: suggestion,
+                        studentRegNo: d.studentRegNo,
+                        // Since the comment is general, we show the teacher name associated with this row, 
+                        // or we can just leave it as general center feedback.
+                        teacherName: d.teacherName 
+                    });
+                    
+                    // Mark this submission as handled so we don't add duplicates
+                    processedSubmissions.add(d.submissionId);
+                }
+            });
             
             const feedbackListEl = document.getElementById('teacherFeedbackList');
             const loadMoreBtn = document.getElementById('loadMoreFeedbackBtn');
@@ -309,7 +339,7 @@
                     const day = String(d.getDate()).padStart(2, '0');
                     const dateStr = `${year}-${month}-${day}`;
                     const studentLink = item.studentRegNo ? `<a href="student_lookup.html?regNo=${item.studentRegNo}&startDate=${startDate}&endDate=${endDate}" target="_blank" style="color:#6c95c2; text-decoration:underline;">${item.studentRegNo}</a>` : 'Anonymous';
-                    const teacherInfo = item.teacherName ? ` | Teacher: ${item.teacherName}` : '';
+                    const teacherInfo = item.teacherName ? ` | Context: ${item.teacherName}` : '';
                     const commentHTML = item.comment ? `<div class="feedback-content"><span class="tag">Comment</span>${item.comment}</div>` : '';
                     const suggestionHTML = item.suggestion ? `<div class="feedback-content"><span class="tag">Suggestion</span>${item.suggestion}</div>` : '';
                     return `<div class="feedback-item"><div class="teacher-meta">${dateStr} | Student: ${studentLink}${teacherInfo}</div>${commentHTML}${suggestionHTML}</div>`;
@@ -323,7 +353,7 @@
                 loadMoreBtn.style.display = 'none';
                 exportFeedbackBtn.style.display = 'none';
             } else {
-                renderFeedback(); // Initial render
+                renderFeedback(); 
                 loadMoreBtn.addEventListener('click', () => renderFeedback(true));
                 exportFeedbackBtn.addEventListener('click', () => exportFeedbackToCsv(teacherName));
             }
@@ -364,7 +394,7 @@
         }
         
         function exportFeedbackToCsv(teacherName) {
-            let csvContent = `"Date","Student","Teacher","Type","Feedback"\r\n`;
+            let csvContent = `"Date","Student","Context (Teacher)","Type","Feedback"\r\n`;
             allFeedbackItems.forEach(item => {
                 const student = item.studentRegNo || 'Anonymous';
                 const teacher = item.teacherName || '';
