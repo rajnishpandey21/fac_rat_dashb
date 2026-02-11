@@ -742,9 +742,9 @@
             </div>
             <!-- ranking score toggle removed -->
             <table id="rankingTable" class="ranking-table">
-                <thead><tr><th>Rank</th><th>Name</th><th>Center</th><th>Subjects</th><th>Avg. Rating</th><th>Unique Students</th><th>Subject Knowledge</th><th>Approachability</th><th>Lecture Delivery</th><th>Student Engagement</th></tr></thead>
-                <tbody id="rankingTableBody"></tbody>
-            </table>
+            <thead id="rankingTableHead"></thead>
+            <tbody id="rankingTableBody"></tbody>
+     </table>
         </div>
         
         <hr style="width:100%; border-color: rgba(255,255,255,0.2); margin: 20px 0;">
@@ -1218,24 +1218,164 @@
             });
         };
 
-        const renderRankingTable = (rankedTeachers) => {
-            rankingTableBodyEl.innerHTML = "";
-            // Apply Full Time / Lecture Based filters (both checked by default)
-            const showFullTime = filterFullTimeEl ? filterFullTimeEl.checked : true;
-            const showLecture = filterLectureBasedEl ? filterLectureBasedEl.checked : true;
-            const filtered = rankedTeachers.filter(t => {
-                const lect = isLectureBased(t.name);
-                return (showLecture && lect) || (showFullTime && !lect);
+       // --- CONFIGURATION ---
+const MIN_MONTHLY_THRESHOLD = 10; // Benchmark: Minimum 10 unique students to show rating
+
+// --- RENDER FUNCTION ---
+const renderRankingTable = (fullData, filters) => {
+    // 1. Filter data: Respect Branch/Teacher/Expertise, but IGNORE Date Range
+    const rankingData = fullData.filter(d => {
+        if (d.teacherStatus !== 'Working') return false;
+
+        const batchIdentifier = `${d.batchId} - ${d.course}`;
+        const dExp = getNormalizedExpertise(d.expertise); 
+        const dBranch = getNormalizedBranch(d.teacherBranch); 
+        
+        if (filters.branch === 'Kolkata' && KOLKATA_BLACKLIST.has(d.teacherId)) return false;
+
+        return (filters.branch === 'all' || dBranch === filters.branch) && 
+               (filters.expertise === 'all' || dExp === filters.expertise) && 
+               (filters.teacher === 'all' || d.teacherId === filters.teacher) && 
+               (filters.batch === 'all' || batchIdentifier === filters.batch);
+    });
+
+    // 2. Prepare Month Keys (Current + 4 previous)
+    const monthConfigs = getLast5MonthKeys();
+    
+    // 3. Aggregate Data
+    const teacherMap = new Map();
+    rankingData.forEach(d => {
+        if (!teacherMap.has(d.teacherId)) {
+            teacherMap.set(d.teacherId, {
+                id: d.teacherId,
+                name: d.teacherName,
+                branch: getNormalizedBranch(d.teacherBranch),
+                subjects: new Set(),
+                monthlyStats: {} 
             });
-            if (filtered.length === 0) {
-                rankingTableBodyEl.innerHTML = '<tr><td colspan="10" style="text-align:center;">No teachers meet the ranking criteria.</td></tr>';
-                return;
-            }
-            filtered.forEach((a, idx) => {
-                rankingTableBodyEl.innerHTML += `<tr><td>${idx + 1}</td><td><a href="#" data-teacher-id="${a.id}" class="teacher-link">${a.name}</a></td><td>${a.branch}</td><td>${a.subjects || ''}</td><td>${a.avgRating.toFixed(2)}</td><td>${a.uniqueResponses}</td><td>${a.avgParams.subjectKnowledge.toFixed(2)}</td><td>${a.avgParams.approachability.toFixed(2)}</td><td>${a.avgParams.lectureDelivery.toFixed(2)}</td><td>${a.avgParams.studentEngagement.toFixed(2)}</td></tr>`;
-            });
+        }
+        
+        const teacher = teacherMap.get(d.teacherId);
+        const normExp = getNormalizedExpertise(d.expertise);
+        if (normExp) teacher.subjects.add(normExp);
+
+        const date = new Date(d.timestamp);
+        const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+
+        if (!teacher.monthlyStats[monthKey]) {
+            teacher.monthlyStats[monthKey] = { ratings: [], students: new Set() };
+        }
+        teacher.monthlyStats[monthKey].ratings.push(d.avgRating);
+        teacher.monthlyStats[monthKey].students.add(d.studentRegNo);
+    });
+
+    // 4. Build Rows & Apply Threshold Logic
+    let rows = [];
+    teacherMap.forEach(t => {
+        // Calculate Sort Score (Current Month Avg) - ONLY if threshold met
+        const currentKey = monthConfigs[0].key;
+        const currentStats = t.monthlyStats[currentKey];
+        let currentAvg = 0;
+        
+        if (currentStats && currentStats.students.size >= MIN_MONTHLY_THRESHOLD) {
+            currentAvg = currentStats.ratings.reduce((a,b)=>a+b,0) / currentStats.ratings.length;
+        }
+        
+        const rowData = {
+            id: t.id,
+            name: t.name,
+            branch: t.branch,
+            subjects: [...t.subjects].sort().join(', '),
+            sortScore: currentAvg, // Will be 0 if students < 10
+            months: []
         };
 
+        // Fill in data for the 5 selected months
+        monthConfigs.forEach(config => {
+            const stats = t.monthlyStats[config.key];
+            if (stats) {
+                // RULE: If unique students < 10, hide the rating ('-')
+                if (stats.students.size >= MIN_MONTHLY_THRESHOLD) {
+                    rowData.months.push({
+                        avg: (stats.ratings.reduce((a,b)=>a+b,0) / stats.ratings.length).toFixed(2),
+                        unique: stats.students.size
+                    });
+                } else {
+                    // Hide rating, but show student count so we know data exists
+                    rowData.months.push({ avg: '-', unique: stats.students.size });
+                }
+            } else {
+                rowData.months.push({ avg: '-', unique: '-' });
+            }
+        });
+
+        rows.push(rowData);
+    });
+
+    // --- NEW FILTER STEP: Remove rows with NO data ---
+    // We check if at least one month has a valid unique student count (not '-')
+    rows = rows.filter(row => row.months.some(m => m.unique !== '-'));
+
+    // 5. Sort Rows (by Current Month Avg Rating Descending)
+    rows.sort((a, b) => b.sortScore - a.sortScore);
+
+    // 6. Render Header
+    const tableHead = document.getElementById('rankingTable').querySelector('thead');
+    if(tableHead) {
+        let headerHtml = `<tr>
+            <th>Rank</th>
+            <th>Name</th>
+            <th>Center</th>
+            <th>Subjects</th>`;
+        monthConfigs.forEach(config => {
+            headerHtml += `<th style="text-align:center; background:#f0f4ff; border-left:1px solid #dee2e6;">${config.label}<br><span style="font-size:0.8em; font-weight:400; color:#666;">Avg / Unique</span></th>`;
+        });
+        headerHtml += `</tr>`;
+        tableHead.innerHTML = headerHtml;
+    }
+
+    // 7. Render Body
+    const tableBody = document.getElementById('rankingTableBody');
+    tableBody.innerHTML = "";
+    
+    const showFullTime = document.getElementById('filterFullTime') ? document.getElementById('filterFullTime').checked : true;
+    const showLecture = document.getElementById('filterLectureBased') ? document.getElementById('filterLectureBased').checked : true;
+
+    let rank = 1;
+    rows.forEach(row => {
+        const isLect = isLectureBased(row.name);
+        if ( (!showFullTime && !isLect) || (!showLecture && isLect) ) return;
+
+        let rowHtml = `<tr>
+            <td>${rank++}</td>
+            <td><a href="#" data-teacher-id="${row.id}" class="teacher-link" style="font-weight:600; color:#007bff; text-decoration:none;">${row.name}</a></td>
+            <td>${row.branch}</td>
+            <td style="font-size:0.9em; color:#555;">${row.subjects}</td>`;
+        
+        row.months.forEach(m => {
+            // Logic for Color Formatting
+            let color = '#333';
+            let weight = '400';
+            
+            if (m.avg !== '-') {
+                const val = parseFloat(m.avg);
+                if (val >= 4.5) { color = '#2e7d32'; weight = '700'; } // Green & Bold
+                else if (val < 4.0) { color = '#c62828'; weight = '700'; } // Red & Bold
+                else { weight = '700'; }
+            }
+
+            rowHtml += `<td style="text-align:center; border-left:1px solid #dee2e6;">
+                <span style="color:${color}; font-weight:${weight}; font-size:1.1em;">${m.avg}</span>
+                ${m.unique !== '-' ? `<br><span style="color:#888; font-size:0.75em;">${m.unique} students</span>` : ''}
+            </td>`;
+        });
+
+        rowHtml += `</tr>`;
+        tableBody.innerHTML += rowHtml;
+    });
+    
+    wireTeacherLinks();
+};
         const wireTeacherLinks = () => {
             document.querySelectorAll('.teacher-link').forEach(el => {
                 const newEl = el.cloneNode(true);
@@ -1252,6 +1392,27 @@
             });
         };
         
+    // --- HELPER: Get Last 5 Months ---
+function getLast5MonthKeys() {
+    const months = [];
+    const today = new Date();
+    // Start from current month (1st of the month to avoid overflow issues)
+    const current = new Date(today.getFullYear(), today.getMonth(), 1);
+    
+    for (let i = 0; i < 5; i++) {
+        // Go back 'i' months
+        const d = new Date(current.getFullYear(), current.getMonth() - i, 1);
+        const monthName = d.toLocaleString('default', { month: 'short' });
+        const year = d.getFullYear();
+        // Key format: YYYY-MM (matches string generation logic)
+        const key = `${year}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        // Label format: Feb '25
+        const label = `${monthName} '${year.toString().slice(-2)}`; 
+        months.push({ key, label });
+    }
+    return months;
+}
+
         const renderDashboard = () => {
             const filters = { startDate: new Date(startDateEl.value + 'T00:00:00').getTime(), endDate: new Date(endDateEl.value + 'T23:59:59').getTime(), branch: branchFilterEl.value, expertise: expertiseFilterEl.value, teacher: teacherFilterEl.value, batch: batchFilterEl.value };
             recomputeDependentFilters(filters);
@@ -1282,7 +1443,8 @@
             const teacherStats = calculateTeacherStats(filteredData);
             const rankedTeachers = rankTeachers(teacherStats);
             renderTop5(rankedTeachers);
-            renderRankingTable(rankedTeachers);
+// Pass full 'allData' to allow the table to ignore date filters internally
+renderRankingTable(allData, filters);
             wireTeacherLinks();
             renderPrimaryChart(filteredData, filters.branch);
             renderTrendChart(filteredData, 'avgRating', 'trendChart', 'Performance Trend');
