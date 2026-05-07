@@ -865,6 +865,60 @@
             return val;
         }
 
+        function getNormalizedCourse(raw) {
+            const val = String(raw || '').trim();
+            if (!val) return '';
+            const normalized = val
+                .replace(/^[A-Z]{2,4}_/i, '')
+                .replace(/_/g, ' ')
+                .replace(/\([^)]*\)/g, ' ')
+                .replace(/\b\d+\s*hrs?\b/ig, ' ')
+                .replace(/\s+/g, ' ')
+                .trim();
+            return normalized || val;
+        }
+
+        function getBatchKey(row) {
+            const batchId = String(row?.batchId || '').trim().replace(/\s+/g, '');
+            if (batchId) return batchId;
+            const course = getNormalizedCourse(row?.course);
+            return course ? `course:${course.toLowerCase()}` : '';
+        }
+
+        function getBatchLabel(row) {
+            const batchId = String(row?.batchId || '').trim().replace(/\s+/g, '');
+            const course = getNormalizedCourse(row?.course);
+            if (batchId && course) return `${batchId} - ${course}`;
+            return batchId || course;
+        }
+
+        function getBatchOptionEntries(rows) {
+            const labelCountsByKey = new Map();
+            rows.forEach(row => {
+                const key = getBatchKey(row);
+                const label = getBatchLabel(row);
+                if (!key || !label) return;
+                if (!labelCountsByKey.has(key)) labelCountsByKey.set(key, new Map());
+                const labelCounts = labelCountsByKey.get(key);
+                labelCounts.set(label, (labelCounts.get(label) || 0) + 1);
+            });
+
+            return [...labelCountsByKey.entries()]
+                .map(([key, labelCounts]) => {
+                    const [label] = [...labelCounts.entries()].sort((a, b) => {
+                        if (b[1] !== a[1]) return b[1] - a[1];
+                        if (a[0].length !== b[0].length) return a[0].length - b[0].length;
+                        return a[0].localeCompare(b[0]);
+                    })[0];
+                    return [key, label];
+                })
+                .sort((a, b) => a[1].localeCompare(b[1]));
+        }
+
+        function isBatchMatch(row, selectedBatch) {
+            return selectedBatch === 'all' || getBatchKey(row) === selectedBatch;
+        }
+
         // Lecture-based faculty list (case-insensitive)
         const lectureBasedSet = new Set([
             'Sanjay Singh',
@@ -1056,7 +1110,7 @@
         const populateFilters = () => {
             const branches = [...new Set(allData.map(a => getNormalizedBranch(a.teacherBranch)))].sort();
             const expertise = [...new Set(allData.map(a => getNormalizedExpertise(a.expertise)).filter(Boolean))].sort();
-            const batches = [...new Set(allData.map(a => `${a.batchId} - ${a.course}`))].sort();
+            const batches = getBatchOptionEntries(allData);
             const workingData = allData.filter(a => a.teacherStatus === 'Working');
             const uniqueTeachers = workingData.reduce((map, row) => {
                 if (!map.has(row.teacherId)) map.set(row.teacherId, row.teacherName);
@@ -1066,7 +1120,7 @@
             branches.forEach(a => branchFilterEl.add(new Option(a, a)));
             expertise.forEach(a => expertiseFilterEl.add(new Option(a, a)));
             teachers.forEach(([id, name]) => teacherFilterEl.add(new Option(name, id)));
-            batches.forEach(a => batchFilterEl.add(new Option(a, a)));
+            batches.forEach(([value, label]) => batchFilterEl.add(new Option(label, value)));
         };
 
         const recomputeDependentFilters = (filters) => {
@@ -1089,16 +1143,21 @@
             const availableTeachers = [...teacherMap.entries()].sort((a, b) => a[1].localeCompare(b[1]));
 
             // Batches within base
-            const batchSet = new Set();
-            base.forEach(d => batchSet.add(`${d.batchId} - ${d.course}`));
-            const availableBatches = [...batchSet].sort();
+            const availableBatches = getBatchOptionEntries(base);
 
             const resetSelectOptions = (selectEl, defaultLabel, allowedValues) => {
                 const prev = selectEl.value;
                 selectEl.innerHTML = '';
                 selectEl.add(new Option(defaultLabel, 'all'));
-                allowedValues.forEach(v => selectEl.add(new Option(v, v)));
-                if (allowedValues.includes(prev)) selectEl.value = prev; else selectEl.value = 'all';
+                allowedValues.forEach(v => {
+                    if (Array.isArray(v)) {
+                        selectEl.add(new Option(v[1], v[0]));
+                    } else {
+                        selectEl.add(new Option(v, v));
+                    }
+                });
+                const allowedOptionValues = allowedValues.map(v => Array.isArray(v) ? v[0] : v);
+                if (allowedOptionValues.includes(prev)) selectEl.value = prev; else selectEl.value = 'all';
             };
 
             resetSelectOptions(expertiseFilterEl, 'All Expertise', availableExpertise);
@@ -1227,7 +1286,6 @@ const renderRankingTable = (fullData, filters) => {
     const rankingData = fullData.filter(d => {
         if (d.teacherStatus !== 'Working') return false;
 
-        const batchIdentifier = `${d.batchId} - ${d.course}`;
         const dExp = getNormalizedExpertise(d.expertise); 
         const dBranch = getNormalizedBranch(d.teacherBranch); 
         
@@ -1236,7 +1294,7 @@ const renderRankingTable = (fullData, filters) => {
         return (filters.branch === 'all' || dBranch === filters.branch) && 
                (filters.expertise === 'all' || dExp === filters.expertise) && 
                (filters.teacher === 'all' || d.teacherId === filters.teacher) && 
-               (filters.batch === 'all' || batchIdentifier === filters.batch);
+               isBatchMatch(d, filters.batch);
     });
 
     // 2. Prepare Month Keys (Current + 4 previous)
@@ -1416,11 +1474,13 @@ function getLast5MonthKeys() {
         const renderDashboard = () => {
             const filters = { startDate: new Date(startDateEl.value + 'T00:00:00').getTime(), endDate: new Date(endDateEl.value + 'T23:59:59').getTime(), branch: branchFilterEl.value, expertise: expertiseFilterEl.value, teacher: teacherFilterEl.value, batch: batchFilterEl.value };
             recomputeDependentFilters(filters);
+            filters.expertise = expertiseFilterEl.value;
+            filters.teacher = teacherFilterEl.value;
+            filters.batch = batchFilterEl.value;
 
             // --- MODIFICATION START ---
             // Create a base filter function
             const baseFilter = (d) => {
-                const batchIdentifier = `${d.batchId} - ${d.course}`; 
                 const dExp = getNormalizedExpertise(d.expertise); 
                 const dBranch = getNormalizedBranch(d.teacherBranch); 
                 
@@ -1429,10 +1489,10 @@ function getLast5MonthKeys() {
                 }
 
                 return (d.timestamp >= filters.startDate && d.timestamp <= filters.endDate) && 
-                       (filters.branch === 'all' || dBranch === filters.branch) && 
-                       (filters.expertise === 'all' || dExp === filters.expertise) && 
-                       (filters.teacher === 'all' || d.teacherId === filters.teacher) && 
-                       (filters.batch === 'all' || batchIdentifier === filters.batch);
+               (filters.branch === 'all' || dBranch === filters.branch) && 
+               (filters.expertise === 'all' || dExp === filters.expertise) && 
+               (filters.teacher === 'all' || d.teacherId === filters.teacher) && 
+               isBatchMatch(d, filters.batch);
             };
 
             // Create two datasets: one for all status, one for working only
@@ -1780,8 +1840,19 @@ renderRankingTable(allData, filters);
         };
         const renderBatchChart = (data) => {
             if (batchChart) batchChart.destroy();
-            const batchData = data.reduce((acc, item) => { const key = `${item.batchId} - ${item.course}`; if (!acc[key]) acc[key] = { ratings: [], paramSums: { sk: 0, ap: 0, ld: 0, se: 0 } }; acc[key].ratings.push(item.avgRating); acc[key].paramSums.sk += item.ratings.subjectKnowledge; acc[key].paramSums.ap += item.ratings.approachability; acc[key].paramSums.ld += item.ratings.lectureDelivery; acc[key].paramSums.se += item.ratings.studentEngagement; return acc; }, {});
-            const batchAvgs = Object.entries(batchData).map(([key, d]) => ({ label: key, avg: d.ratings.reduce((a, b) => a + b, 0) / d.ratings.length, reviewCount: d.ratings.length, avgParams: { sk: (d.paramSums.sk / d.ratings.length).toFixed(2), ap: (d.paramSums.ap / d.ratings.length).toFixed(2), ld: (d.paramSums.ld / d.ratings.length).toFixed(2), se: (d.paramSums.se / d.ratings.length).toFixed(2), } }));
+            const batchLabels = new Map(getBatchOptionEntries(data));
+            const batchData = data.reduce((acc, item) => {
+                const key = getBatchKey(item);
+                if (!key) return acc;
+                if (!acc[key]) acc[key] = { ratings: [], paramSums: { sk: 0, ap: 0, ld: 0, se: 0 } };
+                acc[key].ratings.push(item.avgRating);
+                acc[key].paramSums.sk += item.ratings.subjectKnowledge;
+                acc[key].paramSums.ap += item.ratings.approachability;
+                acc[key].paramSums.ld += item.ratings.lectureDelivery;
+                acc[key].paramSums.se += item.ratings.studentEngagement;
+                return acc;
+            }, {});
+            const batchAvgs = Object.entries(batchData).map(([key, d]) => ({ label: batchLabels.get(key) || key, avg: d.ratings.reduce((a, b) => a + b, 0) / d.ratings.length, reviewCount: d.ratings.length, avgParams: { sk: (d.paramSums.sk / d.ratings.length).toFixed(2), ap: (d.paramSums.ap / d.ratings.length).toFixed(2), ld: (d.paramSums.ld / d.ratings.length).toFixed(2), se: (d.paramSums.se / d.ratings.length).toFixed(2), } }));
             const eligibleBatches = batchAvgs.filter(batch => batch.reviewCount >= MIN_REVIEWS_FOR_BATCH_CHART);
             if (eligibleBatches.length === 0) {
                 const ctx = document.getElementById('batchChart').getContext('2d');
@@ -1936,7 +2007,16 @@ renderRankingTable(allData, filters);
 
             try {
                 const filters = { startDate: new Date(startDateEl.value + 'T00:00:00').getTime(), endDate: new Date(endDateEl.value + 'T23:59:59').getTime(), branch: branchFilterEl.value, expertise: expertiseFilterEl.value, teacher: teacherFilterEl.value, batch: batchFilterEl.value };
-                const filteredData = allData.filter(d => { const batchIdentifier = `${d.batchId} - ${d.course}`; return (d.timestamp >= filters.startDate && d.timestamp <= filters.endDate) && (filters.branch === 'all' || d.teacherBranch === filters.branch) && (filters.expertise === 'all' || d.expertise === filters.expertise) && (filters.teacher === 'all' || d.teacherId === filters.teacher) && (filters.batch === 'all' || batchIdentifier === filters.batch) && (d.teacherStatus === 'Working'); });
+                const filteredData = allData.filter(d => {
+                    const dExp = getNormalizedExpertise(d.expertise);
+                    const dBranch = getNormalizedBranch(d.teacherBranch);
+                    return (d.timestamp >= filters.startDate && d.timestamp <= filters.endDate) &&
+                           (filters.branch === 'all' || dBranch === filters.branch) &&
+                           (filters.expertise === 'all' || dExp === filters.expertise) &&
+                           (filters.teacher === 'all' || d.teacherId === filters.teacher) &&
+                           isBatchMatch(d, filters.batch) &&
+                           (d.teacherStatus === 'Working');
+                });
                 
                 const teacherStats = calculateTeacherStats(filteredData);
                 const rankedTeachers = rankTeachers(teacherStats);
